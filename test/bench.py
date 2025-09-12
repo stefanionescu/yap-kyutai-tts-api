@@ -230,11 +230,11 @@ def main() -> None:
     ap.add_argument("--concurrency", type=int, default=10, help="Max concurrent sessions")
     ap.add_argument("--voice", type=str, default=str(DATA_DIR / "voices" / "ears" / "p004" / "freeform_speech_01.wav"), help="Reference voice path on the server filesystem")
     ap.add_argument("--text", action="append", default=None, help="Inline text prompt (repeat for multiple)")
-    ap.add_argument("--api-key", default=None, help="API key for authentication (defaults to env vars or 'public_token')")
+    ap.add_argument("--api-key", default=None, help="API key for authentication (defaults to KYUTAI_API_KEY env var or 'public_token')")
     args = ap.parse_args()
     
-    # Determine API key: CLI arg -> env vars -> default to public_token
-    api_key = args.api_key or os.getenv("KYUTAI_API_KEY") or os.getenv("YAP_API_KEY") or "public_token"
+    # Determine API key: CLI arg -> env var -> default to public_token
+    api_key = args.api_key or os.getenv("KYUTAI_API_KEY") or "public_token"
 
     texts = _load_texts(args.text)
 
