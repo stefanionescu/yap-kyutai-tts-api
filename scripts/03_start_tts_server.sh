@@ -18,20 +18,6 @@ mkdir -p "${LOG_DIR}"
 echo "[03-tts] Starting moshi TTS server in tmux '${SESSION}'…"
 echo "[03-tts] Using config: ${CFG}"
 
-# Inject runtime auth if you want to reuse your STT header semantics
-if [ "${YAP_API_KEY:-}" != "" ]; then
-  TMP_CFG="${CFG}.runtime"
-  awk -v key="${YAP_API_KEY}" '
-    BEGIN{done=0}
-    /^authorized_ids\s*=\s*\[/ {
-      print "authorized_ids = ['" key "']"; done=1; next
-    }
-    { print }
-    END{ if (!done) print "authorized_ids = ['" key "']" }
-  ' "${CFG}" > "${TMP_CFG}"
-  CFG="${TMP_CFG}"
-fi
-
 # Ensure Python libdir is on LD_LIBRARY_PATH for the Rust server
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PY_BIN="${SCRIPT_DIR}/.venv/bin/python"
@@ -55,7 +41,7 @@ TMUX_BIN="${TMUX_BIN:-tmux}"
 ${TMUX_BIN} has-session -t "${SESSION}" 2>/dev/null && ${TMUX_BIN} kill-session -t "${SESSION}"
 
 ${TMUX_BIN} new-session -d -s "${SESSION}" \
-  "cd '${SCRIPT_DIR}' && env LD_LIBRARY_PATH='${LD_LIBRARY_PATH}' uv run --frozen moshi-server worker --config '${CFG}' --addr '${ADDR}' --port '${PORT}' 2>&1 | tee '${LOG_DIR}/tts-server.log'"
+  "cd '${SCRIPT_DIR}' && env LD_LIBRARY_PATH='${LD_LIBRARY_PATH}' moshi-server worker --config '${CFG}' --addr '${ADDR}' --port '${PORT}' 2>&1 | tee '${LOG_DIR}/tts-server.log'"
 
 # Wait for the port to open
 for i in $(seq 1 180); do
