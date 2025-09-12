@@ -5,9 +5,9 @@ BASE_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT_DIR="${BASE_DIR%/scripts}"
 
 # Load shared envs if present
-if [ -f "${BASE_DIR}/env.lib.sh" ]; then
+if [ -f "${BASE_DIR}/env.sh" ]; then
   # shellcheck disable=SC1090
-  source "${BASE_DIR}/env.lib.sh"
+  source "${BASE_DIR}/env.sh"
 fi
 
 # Load TTS envs

@@ -3,9 +3,9 @@ set -euo pipefail
 BASE_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 # Load envs if available
-if [ -f "${BASE_DIR}/env.lib.sh" ]; then
+if [ -f "${BASE_DIR}/env.sh" ]; then
   # shellcheck disable=SC1090
-  source "${BASE_DIR}/env.lib.sh"
+  source "${BASE_DIR}/env.sh"
 fi
 if [ -f "${BASE_DIR}/env.sh" ]; then
   # shellcheck disable=SC1090

@@ -19,7 +19,7 @@ Do not run these scripts locally; they are intended for RunPod pods with a CUDA 
 ### Prerequisites (on RunPod)
 - NVIDIA GPU with CUDA 12.x available (NVRTC present). Scripts export `CUDARC_NVRTC_PATH`.
 - Outbound internet access to pull crates and Hugging Face assets.
-- Your existing `scripts/env.lib.sh` (optional but supported). If it's missing, the scripts still run because `main.sh`/`stop.sh` guard their sourcing.
+- Your existing `scripts/env.sh` (optional but supported). If it's missing, the scripts still run because `main.sh`/`stop.sh` guard their sourcing.
 
 ### Environment
 Edit `scripts/env.sh` to adjust ports and voice.

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
-source "$(dirname "$0")/env.lib.sh"
+source "$(dirname "$0")/env.sh"
 echo "[02-tts] Fetching DSM repo for configs & scripts…"
 
 DSM_DIR="${DSM_REPO_DIR:-/workspace/delayed-streams-modeling}"
