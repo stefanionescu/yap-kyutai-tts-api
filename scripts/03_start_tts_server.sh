@@ -43,10 +43,10 @@ if command -v "${TMUX_BIN}" >/dev/null 2>&1; then
   echo "[03-tts] Using tmux session '${SESSION}'"
   ${TMUX_BIN} has-session -t "${SESSION}" 2>/dev/null && ${TMUX_BIN} kill-session -t "${SESSION}"
   ${TMUX_BIN} new-session -d -s "${SESSION}" \
-    "cd '${REPO_ROOT}' && env LD_LIBRARY_PATH='${LD_LIBRARY_PATH}' uv run --locked --frozen moshi-server worker --config '${CFG}' --addr '${ADDR}' --port '${PORT}' 2>&1 | tee '${LOG_DIR}/tts-server.log'"
+    "cd '${REPO_ROOT}' && env LD_LIBRARY_PATH='${LD_LIBRARY_PATH}' uv run --frozen moshi-server worker --config '${CFG}' --addr '${ADDR}' --port '${PORT}' 2>&1 | tee '${LOG_DIR}/tts-server.log'"
 else
   echo "[03-tts] tmux not found; using nohup fallback"
-  nohup sh -c "cd '${REPO_ROOT}' && env LD_LIBRARY_PATH='${LD_LIBRARY_PATH}' uv run --locked --frozen moshi-server worker --config '${CFG}' --addr '${ADDR}' --port '${PORT}'" \
+  nohup sh -c "cd '${REPO_ROOT}' && env LD_LIBRARY_PATH='${LD_LIBRARY_PATH}' uv run --frozen moshi-server worker --config '${CFG}' --addr '${ADDR}' --port '${PORT}'" \
     > "${LOG_DIR}/tts-server.log" 2>&1 &
 fi
 
