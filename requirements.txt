@@ -1,0 +1,3 @@
+websockets>=12.0
+numpy>=1.26
+msgpack>=1.0.7

@@ -1,6 +1,6 @@
-## Yap Kyutai TTS API
+# Yap TTS API
 
-This repo runs a Text-To-Speech (TTS) service using Kyutai's DSM. It runs the Rust `moshi-server`.
+This repo runs a Text-To-Speech (TTS) service using Kyutai's DSM. It runs the Kyutai Rust `moshi-server`.
 
 - **Model**: `kyutai/tts-0.75b-en-public` (English-only)
 - **Defaults**: port `8089`, voice `ears/p004/freeform_speech_01.wav`
@@ -60,6 +60,41 @@ What it does:
 - Runs `scripts/04_tts_smoke_test.sh` to synthesize to a WAV file at `.data/out.wav` (no playback on server)
 
 Logs: `${TTS_LOG_DIR}/tts-server.log` (default `/workspace/logs/tts-server.log`).
+
+### Benchmarks and warmup
+Two helper scripts generate audio to `.data/` and report useful metrics.
+
+1) Warmup (primes caches; writes `.data/warmup/warmup.wav`):
+
+```bash
+# simple
+python3 test/warmup.py
+
+# with flags
+python3 test/warmup.py --server 127.0.0.1:8089 \
+  --voice ".data/voices/ears/p004/freeform_speech_01.wav" \
+  --text "Warming up the model and caches."
+```
+
+2) Benchmark (concurrent requests; writes `.data/bench/*.wav` and `test/results/bench_metrics.jsonl`):
+
+```bash
+# simple (uses embedded default text)
+python3 test/bench.py
+
+# with flags (inline texts)
+python3 test/bench.py --server 127.0.0.1:8089 \
+  --n 20 --concurrency 5 \
+  --voice ".data/voices/ears/p004/freeform_speech_01.wav" \
+  --text "Hello from Kyutai TTS." --text "Another line for the benchmark."
+
+# override with one text only
+python3 test/bench.py --text "This is a custom inline prompt."
+```
+
+Note: if you prefer to use the `uv` venv created by the installer, run `source scripts/.venv/bin/activate` first or use `uv run --frozen python test/bench.py ...`.
+
+Dependencies for these scripts are listed in `requirements.txt` and are already installed in `scripts/.venv` by the installer via `uv sync`.
 
 ### Stop and clean up
 Stops the tmux session and removes caches and downloaded artifacts; preserves your repo and Jupyter/web console.
