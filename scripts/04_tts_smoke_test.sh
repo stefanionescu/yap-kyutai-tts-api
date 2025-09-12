@@ -17,8 +17,12 @@ VOICE_PATH="${VOICES_DIR:-/workspace/voices}/${TTS_VOICE:-ears/p004/freeform_spe
 echo "[smoke] Server: ${SERVER_URL}"
 [ -f "${VOICE_PATH}" ] && echo "[smoke] Voice:  ${VOICE_PATH}" || echo "[smoke] Voice not found (will use server default): ${VOICE_PATH}"
 
-# From stdin → speaker (explicit URL)
-echo "Hey, how are you?" | uv run "${DSM_DIR}/scripts/tts_rust_server.py" - - --url "${SERVER_URL}"
+# From stdin → speaker (explicit URL). If voice exists, pass it.
+if [ -f "${VOICE_PATH}" ]; then
+  echo "Hey, how are you?" | uv run "${DSM_DIR}/scripts/tts_rust_server.py" - - --url "${SERVER_URL}" --voice "${VOICE_PATH}"
+else
+  echo "Hey, how are you?" | uv run "${DSM_DIR}/scripts/tts_rust_server.py" - - --url "${SERVER_URL}"
+fi
 
 # Optional: pass a reference voice if your DSM client supports it
 # echo "Hello there" | uv run "${DSM_DIR}/scripts/tts_rust_server.py" - - --url "${SERVER_URL}" --voice "${VOICE_PATH}"
