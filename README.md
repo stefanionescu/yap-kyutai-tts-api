@@ -64,6 +64,14 @@ Logs: `${TTS_LOG_DIR}/tts-server.log` (default `/workspace/logs/tts-server.log`)
 ### Benchmarks and warmup
 Two helper scripts generate audio to `.data/` and report useful metrics.
 
+Setup (once per pod/session):
+
+```bash
+# Reuse the venv created by the installer
+source scripts/.venv/bin/activate
+pip install -r requirements.txt
+```
+
 1) Warmup (primes caches; writes `.data/warmup/warmup.wav`):
 
 ```bash
