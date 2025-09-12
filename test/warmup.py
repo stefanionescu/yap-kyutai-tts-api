@@ -68,34 +68,39 @@ async def _run(server: str, text: str, voice_path: Optional[str], out_path: Path
     ttfb: Optional[float] = None
     sample_rate = 24000
     pcm_chunks: list[np.ndarray] = []
-    debug_shown = 0
 
     async with connect(url, **ws_options) as ws:
+        print(f"[debug] Connected to {url}")
+        print(f"[debug] Sending Text message: {text}")
         await ws.send(msgpack.packb({"type": "Text", "text": text}, use_bin_type=True))
         await ws.send(msgpack.packb({"type": "Flush"}, use_bin_type=True))
+        print(f"[debug] Sent Flush message")
 
         async for raw in ws:
             if not isinstance(raw, (bytes, bytearray)):
+                print(f"[debug] recv non-binary: {type(raw)} {raw}")
                 continue
             msg = msgpack.unpackb(raw, raw=False)
 
-            if debug_shown < 3:
-                # Peek at shape of first few frames to future-proof parsing
-                print(f"[debug] recv type={msg.get('type')} keys={list(msg.keys())[:6]}")
-                debug_shown += 1
+            # Print EVERY message we receive
+            print(f"[debug] recv: {msg}")
 
             mtype = msg.get("type")
             if mtype in ("Audio", "Pcm", "AudioPcm", "AudioChunk", "AudioF32", "AudioI16"):
                 pcm_i16, sr = _extract_pcm(msg)
+                print(f"[debug] audio frame: {pcm_i16.size} samples, sr={sr}")
                 if pcm_i16.size > 0:
                     if ttfb is None:
                         ttfb = time.perf_counter() - t0
                     sample_rate = sr
                     pcm_chunks.append(pcm_i16)
             elif mtype in ("End", "Final", "Done", "Marker"):
+                print(f"[debug] end message received: {mtype}")
                 break
             elif mtype in ("Error",):
                 raise RuntimeError(f"server error: {msg}")
+            else:
+                print(f"[debug] other message type: {mtype}")
 
     wall = time.perf_counter() - t0
 
