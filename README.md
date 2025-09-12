@@ -57,7 +57,7 @@ What it does:
 - Clones DSM and writes `../server/config-tts-en-hf.toml` with the model set to `kyutai/tts-0.75b-en-public`, and enforces Mimi `n_q = 16`
 - Starts the Rust server via `uv run --frozen moshi-server worker --config ... --addr ... --port ...` (tmux if available, else nohup)
 - Waits until the port is open
-- Runs `scripts/04_tts_smoke_test.sh` to verify a basic synthesis request succeeds
+- Runs `scripts/04_tts_smoke_test.sh` to synthesize to a WAV file at `.data/out.wav` (no playback on server)
 
 Logs: `${TTS_LOG_DIR}/tts-server.log` (default `/workspace/logs/tts-server.log`).
 
