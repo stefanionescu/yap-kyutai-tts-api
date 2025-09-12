@@ -24,19 +24,6 @@ Do not run these scripts locally; they are intended for RunPod pods with a CUDA 
 ### Environment
 Edit `scripts/env.sh` to adjust ports and voice.
 
-```bash
-# -------- YAP TTS RUNPOD ENV --------
-TTS_ADDR=0.0.0.0
-TTS_PORT=8000
-TTS_LOG_DIR=/workspace/logs
-TTS_TMUX_SESSION=yap-tts
-TTS_CONFIG=${TTS_CONFIG:-${ROOT_DIR}/../server/config-tts-en-hf.toml}
-
-# Voice assets
-VOICES_DIR=${VOICES_DIR:-/workspace/voices}
-TTS_VOICE=${TTS_VOICE:-ears/p004/freeform_speech_01.wav}
-```
-
 Notes:
 - Data is stored inside this repo under `.data/` by default:
   - Config: `.data/server/config-tts-en-hf.toml` (override via `TTS_CONFIG`)
@@ -54,12 +41,12 @@ bash scripts/main.sh
 What it does:
 - Creates a `scripts/.venv` and installs pinned Python deps using `uv`
 - Installs a pinned `moshi-server` version with CUDA support (`0.6.3` by default)
-- Clones DSM and writes `../server/config-tts-en-hf.toml` with the model set to `kyutai/tts-0.75b-en-public`, and enforces Mimi `n_q = 16`
+- Clones DSM and writes `.data/server/config-tts-en-hf.toml` with the model set to `kyutai/tts-0.75b-en-public`, and enforces Mimi `n_q = 16`
 - Starts the Rust server via `uv run --frozen moshi-server worker --config ... --addr ... --port ...` (tmux if available, else nohup)
 - Waits until the port is open
 - Runs `scripts/04_tts_smoke_test.sh` to synthesize to a WAV file at `.data/out.wav` (no playback on server)
 
-Logs: `${TTS_LOG_DIR}/tts-server.log` (default `/workspace/logs/tts-server.log`).
+Logs: `${TTS_LOG_DIR}/tts-server.log` (default `.data/logs/tts-server.log`).
 
 ### Benchmarks and warmup
 Two helper scripts generate audio to `.data/` and report useful metrics.
@@ -100,9 +87,7 @@ python3 test/bench.py --server 127.0.0.1:8089 \
 python3 test/bench.py --text "This is a custom inline prompt."
 ```
 
-Note: if you prefer to use the `uv` venv created by the installer, run `source scripts/.venv/bin/activate` first or use `uv run --frozen python test/bench.py ...`.
-
-Dependencies for these scripts are listed in `requirements.txt` and are already installed in `scripts/.venv` by the installer via `uv sync`.
+Dependencies for these scripts are listed in `requirements.txt`. Ensure your active venv has them installed before running tests.
 
 ### Stop and clean up
 Stops the tmux session and removes caches and downloaded artifacts; preserves your repo and Jupyter/web console.
@@ -127,7 +112,7 @@ Preserved:
 Set `TTS_VOICE` in `scripts/env.sh` to any path from `kyutai/tts-voices` (e.g., `ears/p004/freeform_speech_01.wav`). `scripts/02_fetch_tts_configs.sh` will download it on first run.
 
 ### Changing the port
-`TTS_PORT` in `scripts/env.sh` controls the server port (default `8000`). If you use the DSM Python client script directly, pass `--url ws://HOST:PORT` when connecting, since DSM defaults to a different port.
+`TTS_PORT` in `scripts/env.sh` controls the server port (default `8089`).
 
 ### Versions pinned
 - `moshi-server`: `0.6.3` (edit `MOSHI_VERSION` in `scripts/01_install_tts_server.sh`)
