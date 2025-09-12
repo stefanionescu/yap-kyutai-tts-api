@@ -56,11 +56,11 @@ async def _run(server: str, text: str, voice_path: Optional[str], out_path: Path
     ws_options = {
         "additional_headers": headers,  # websockets v15 API
         "max_size": None,
-        "ping_interval": 20,
-        "ping_timeout": 20,
+        "ping_interval": 30,
+        "ping_timeout": 30,
         "max_queue": None,
         "write_limit": 2**22,
-        "open_timeout": 10,
+        "open_timeout": 30,
         "close_timeout": 0.5,
     }
 

@@ -35,6 +35,7 @@ Notes:
 #### Tuning knobs (concurrency, batching, CPU caps)
 - **TTS_BATCH_SIZE**: default `32`. Controls dynamic batching for `/api/tts_streaming`.
 - **TTS_NUM_WORKERS**: default `12`. Sets `num_workers` in the server config (concurrent synth tasks).
+- **TTS_MAX_QUEUE_LEN**: default `256`. Sets `max_queue_len` (if supported) to absorb brief bursts.
 - **TTS_RAYON_THREADS**: default `1`. Caps Candle/Rayon CPU workers to avoid CPU thrash.
 - **TTS_TOKIO_THREADS**: default `4`. Tokio runtime worker threads.
 - **MALLOC_ARENA_MAX**: default `2`. Lower glibc arenas to reduce heap fragmentation under load.
@@ -65,6 +66,14 @@ Performance defaults (safe for L40S):
 - `RAYON_NUM_THREADS=1`, `TOKIO_WORKER_THREADS=4`, `MALLOC_ARENA_MAX=2`
 
 Logs: `${TTS_LOG_DIR}/tts-server.log` (default `.data/logs/tts-server.log`).
+
+Tail the server logs during a run:
+
+```bash
+tail -f .data/logs/tts-server.log
+# or, if you customized TTS_LOG_DIR:
+tail -f "$TTS_LOG_DIR/tts-server.log"
+```
 
 ### Benchmarks and warmup
 Two helper scripts generate audio to `.data/` and report useful metrics.
@@ -139,7 +148,7 @@ Set `TTS_VOICE` in `scripts/env.sh` to any path from `kyutai/tts-voices` (e.g., 
 - Port not opening: Check `${TTS_LOG_DIR}/tts-server.log`. Verify GPU/CUDA NVRTC is available and not in use by other processes.
 - HF 401 on model: `kyutai/tts-0.75b-en-public` is public; ensure internet and, if needed, set `HF_HOME` / `HUGGING_FACE_HUB_TOKEN` in the environment.
 - Slow or contended GPU: Avoid running STT and TTS on the same GPU concurrently.
-- Many errors at higher concurrency: raise `TTS_BATCH_SIZE` and/or `TTS_NUM_WORKERS`; keep `TTS_RAYON_THREADS` low. Ensure client sends `kyutai-api-key` matching `authorized_ids`.
+- Many errors at higher concurrency: raise `TTS_BATCH_SIZE` and/or `TTS_NUM_WORKERS`; keep `TTS_RAYON_THREADS` low; consider increasing `TTS_MAX_QUEUE_LEN`. Ensure client sends `kyutai-api-key` matching `authorized_ids`. Increase client `open_timeout/ping_interval/ping_timeout` to 30s for bursts.
 
 ### Security
 To restrict access, set `authorized_ids = ["<token>"]` in your TOML config, and have clients send `kyutai-api-key: <token>`.
