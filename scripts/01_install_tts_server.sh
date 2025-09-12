@@ -20,11 +20,20 @@ export UV_LINK_MODE=copy
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
-# Ensure cargo
-if ! command -v cargo >/dev/null 2>&1; then
+# Ensure rustup/cargo and select a default toolchain
+if ! command -v rustup >/dev/null 2>&1; then
   curl https://sh.rustup.rs -sSf | sh -s -- -y
-  export PATH="$HOME/.cargo/bin:$PATH"
 fi
+# Ensure cargo/rustup in PATH for this shell
+source "$HOME/.cargo/env" 2>/dev/null || true
+export PATH="$HOME/.cargo/bin:$PATH"
+# Install & select a default toolchain (idempotent)
+rustup set profile minimal
+rustup toolchain install stable --profile minimal
+rustup default stable
+# Optional: verify toolchain is usable
+rustc -V || true
+cargo -V || true
 
 # Ensure uv for pinned Python deps
 if ! command -v uv >/dev/null 2>&1; then
