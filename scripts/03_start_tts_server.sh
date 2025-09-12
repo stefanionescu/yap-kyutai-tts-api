@@ -15,7 +15,7 @@ PORT="${TTS_PORT}"
 ADDR="${TTS_ADDR}"
 mkdir -p "${LOG_DIR}"
 
-echo "[03-tts] Starting moshi TTS server in tmux '${SESSION}'…"
+echo "[03-tts] Starting moshi TTS server…"
 echo "[03-tts] Using config: ${CFG}"
 
 # Ensure Python libdir is on LD_LIBRARY_PATH for the Rust server
@@ -36,12 +36,18 @@ if [ -n "${PY_LIBDIR}" ]; then
   export LD_LIBRARY_PATH="${PY_LIBDIR}:${LD_LIBRARY_PATH:-}"
 fi
 
-# Restart tmux session
+# Prefer tmux; fallback to nohup if tmux not installed
 TMUX_BIN="${TMUX_BIN:-tmux}"
-${TMUX_BIN} has-session -t "${SESSION}" 2>/dev/null && ${TMUX_BIN} kill-session -t "${SESSION}"
-
-${TMUX_BIN} new-session -d -s "${SESSION}" \
-  "cd '${SCRIPT_DIR}' && env LD_LIBRARY_PATH='${LD_LIBRARY_PATH}' moshi-server worker --config '${CFG}' --addr '${ADDR}' --port '${PORT}' 2>&1 | tee '${LOG_DIR}/tts-server.log'"
+if command -v "${TMUX_BIN}" >/dev/null 2>&1; then
+  echo "[03-tts] Using tmux session '${SESSION}'"
+  ${TMUX_BIN} has-session -t "${SESSION}" 2>/dev/null && ${TMUX_BIN} kill-session -t "${SESSION}"
+  ${TMUX_BIN} new-session -d -s "${SESSION}" \
+    "cd '${SCRIPT_DIR}' && env LD_LIBRARY_PATH='${LD_LIBRARY_PATH}' uv run --frozen moshi-server worker --config '${CFG}' --addr '${ADDR}' --port '${PORT}' 2>&1 | tee '${LOG_DIR}/tts-server.log'"
+else
+  echo "[03-tts] tmux not found; using nohup fallback"
+  nohup sh -c "cd '${SCRIPT_DIR}' && env LD_LIBRARY_PATH='${LD_LIBRARY_PATH}' uv run --frozen moshi-server worker --config '${CFG}' --addr '${ADDR}' --port '${PORT}'" \
+    > "${LOG_DIR}/tts-server.log" 2>&1 &
+fi
 
 # Wait for the port to open
 for i in $(seq 1 180); do

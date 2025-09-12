@@ -4,7 +4,7 @@ This repo runs a Text-To-Speech (TTS) service using Kyutai's DSM. It runs the Ru
 
 - **Model**: `kyutai/tts-0.75b-en-public` (English-only)
 - **Defaults**: port `8000`, voice `ears/p004/freeform_speech_01.wav`
-- **Runtime**: Rust server launched directly
+- **Runtime**: Rust server launched via `uv run` (ensures Python deps are active)
 
 Do not run these scripts locally; they are intended for RunPod pods with a CUDA GPU.
 
@@ -52,7 +52,7 @@ What it does:
 - Creates a `scripts/.venv` and installs pinned Python deps using `uv`
 - Installs a pinned `moshi-server` version with CUDA support (`0.6.3` by default)
 - Clones DSM and writes `../server/config-tts-en-hf.toml` with the model set to `kyutai/tts-0.75b-en-public`, and enforces Mimi `n_q = 16`
-- Starts the Rust server via `moshi-server worker --config ... --addr ... --port ...` in tmux
+- Starts the Rust server via `uv run --frozen moshi-server worker --config ... --addr ... --port ...` (tmux if available, else nohup)
 - Waits until the port is open
 - Runs `scripts/04_tts_smoke_test.sh` to verify a basic synthesis request succeeds
 
