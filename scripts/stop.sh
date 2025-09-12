@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 BASE_DIR="$(cd "$(dirname "$0")" && pwd)"
+ROOT_DIR="${BASE_DIR%/scripts}"
 
 # Load envs if available
 if [ -f "${BASE_DIR}/env.sh" ]; then
@@ -43,12 +44,12 @@ SCRIPT_DIR="${BASE_DIR}"
 VOICE_ROOT="${VOICES_DIR:-${ROOT_DIR}/.data/voices}"
 DSM_DIR="${DSM_REPO_DIR:-${ROOT_DIR}/.data/delayed-streams-modeling}"
 
-# Remove Python venv and lockfiles/manifests used by uv in scripts/
+# Remove Python venv and lockfiles/manifests used by uv at repo root
 if [ -d "${ROOT_DIR}/.venv" ]; then
   echo "[stop] Removing venv: ${ROOT_DIR}/.venv"
   rm -rf "${ROOT_DIR}/.venv"
 fi
-for f in "${SCRIPT_DIR}/pyproject.toml" "${SCRIPT_DIR}/uv.lock"; do
+for f in "${ROOT_DIR}/pyproject.toml" "${ROOT_DIR}/uv.lock"; do
   [ -f "$f" ] && { echo "[stop] Removing $f"; rm -f "$f"; }
 done
 
@@ -174,7 +175,7 @@ fi
 
 # Keep logs by default; delete if requested
 if [ "${PURGE_LOGS:-0}" = "1" ]; then
-  LOG_DIR="${TTS_LOG_DIR:-/workspace/logs}"
+  LOG_DIR="${TTS_LOG_DIR:-${ROOT_DIR}/.data/logs}"
   [ -d "${LOG_DIR}" ] && { echo "[stop] Purging logs in ${LOG_DIR}"; rm -rf "${LOG_DIR}"; }
 fi
 
