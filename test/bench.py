@@ -102,9 +102,11 @@ async def _tts_one(
     pcm_chunks: List[np.ndarray] = []  # accumulate as int16 chunks
 
     async with connect(url, **ws_options) as ws:  # type: ignore
-        # Send text then Flush to start synthesis
-        await ws.send(msgpack.packb({"type": "Text", "text": text}, use_bin_type=True))
-        await ws.send(msgpack.packb({"type": "Flush"}, use_bin_type=True))
+        # Kyutai-style streaming: send text word by word, then Eos to trigger synthesis
+        words = text.split()
+        for word in words:
+            await ws.send(msgpack.packb({"type": "Text", "text": word}, use_bin_type=True))
+        await ws.send(msgpack.packb({"type": "Eos"}, use_bin_type=True))
 
         async for raw in ws:  # server sends binary msgpack frames
             if not isinstance(raw, (bytes, bytearray)):
