@@ -49,15 +49,32 @@ fi
 
 # Ensure the embedded Python used by pyo3 points to our venv
 export PYO3_PYTHON="${PY_BIN}"
-# Avoid breaking stdlib/site lookup inside embedded Python
-unset PYTHONHOME || true
-unset PYTHONPATH || true
+# Use base Python stdlib for encodings, and the venv site-packages for deps
+BASE_PREFIX="$(${PY_BIN} - <<'PY'
+import sys
+print(sys.base_prefix)
+PY
+)"
+PY_SITE_PKGS="$(${PY_BIN} - <<'PY'
+import site
+paths = []
+paths.extend([p for p in site.getsitepackages() if 'site-packages' in p])
+try:
+    paths.append(site.getusersitepackages())
+except Exception:
+    pass
+print(':'.join(paths))
+PY
+)"
+export PYTHONHOME="${BASE_PREFIX}"
+export PYTHONPATH="${PY_SITE_PKGS}:${PYTHONPATH:-}"
+export PYTHONNOUSERSITE=1
 
 # Build local moshi-server binary from the checked-out repo to ensure we use local sources
 MOSHI_ROOT="${REPO_ROOT}/moshi"
 if [ -d "${MOSHI_ROOT}/rust/moshi-server" ]; then
   echo "[03-tts] Building local moshi-server with CUDA…"
-  (cd "${MOSHI_ROOT}/rust/moshi-server" && env PYO3_PYTHON="${PYO3_PYTHON}" cargo build -r --features=cuda | cat)
+  (cd "${MOSHI_ROOT}/rust/moshi-server" && env PYO3_PYTHON="${PYO3_PYTHON}" cargo clean && env PYO3_PYTHON="${PYO3_PYTHON}" cargo build -r --features=cuda | cat)
   MOSHI_BIN="${MOSHI_ROOT}/rust/target/release/moshi-server"
   if [ ! -x "$MOSHI_BIN" ]; then
     # Some setups place target at repo root
