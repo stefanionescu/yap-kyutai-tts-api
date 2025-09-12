@@ -87,11 +87,11 @@ async def _tts_one(
     ws_options = {
         "additional_headers": headers,     # v15 name
         "max_size": None,                  # allowed (no limit)
-        "ping_interval": 20,
-        "ping_timeout": 20,
+        "ping_interval": 30,
+        "ping_timeout": 30,
         "max_queue": None,
         "write_limit": 2**22,
-        "open_timeout": 10,
+        "open_timeout": 30,
         "close_timeout": 0.5,
         # NOTE: v15 dropped the old "compression" kwarg; use "extensions" if needed.
     }

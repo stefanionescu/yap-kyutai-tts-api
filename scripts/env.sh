@@ -19,6 +19,8 @@ TTS_VOICE=${TTS_VOICE:-ears/p004/freeform_speech_01.wav}
 TTS_BATCH_SIZE=${TTS_BATCH_SIZE:-32}
 # Worker threads inside moshi-server (concurrent synthesis tasks)
 TTS_NUM_WORKERS=${TTS_NUM_WORKERS:-12}
+# Optional server-side request queue length (if supported by your moshi build)
+TTS_MAX_QUEUE_LEN=${TTS_MAX_QUEUE_LEN:-256}
 # Rayon CPU threads (Candle). Keep low to avoid CPU thrash on GPU runs
 TTS_RAYON_THREADS=${TTS_RAYON_THREADS:-1}
 # Tokio runtime worker threads

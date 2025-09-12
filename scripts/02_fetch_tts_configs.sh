@@ -52,6 +52,13 @@ else
   printf '\n# Worker pool size for concurrent synthesis\nnum_workers = %s\n' "${TTS_NUM_WORKERS:-12}" >> "${DEST_CFG}"
 fi
 
+# Optionally set max_queue_len if supported by this build
+if grep -qE '^[[:space:]]*max_queue_len[[:space:]]*=' "${DEST_CFG}"; then
+  sed -i "s/^[[:space:]]*max_queue_len[[:space:]]*=.*/max_queue_len = ${TTS_MAX_QUEUE_LEN:-256}/" "${DEST_CFG}" || true
+else
+  printf '\n# Queue length headroom for bursts (if supported)\nmax_queue_len = %s\n' "${TTS_MAX_QUEUE_LEN:-256}" >> "${DEST_CFG}"
+fi
+
 echo "[02-tts] Wrote ${DEST_CFG}"
 
 # Ensure requested voice asset is present
