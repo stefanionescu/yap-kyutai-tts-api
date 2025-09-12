@@ -14,7 +14,7 @@ from typing import Optional
 
 import msgpack  # type: ignore
 import numpy as np  # type: ignore
-import websockets  # type: ignore
+from websockets.asyncio.client import connect  # type: ignore
 from urllib.parse import quote
 import wave
 import json
@@ -55,15 +55,15 @@ async def _run(server: str, text: str, voice_path: Optional[str], out_path: Path
         headers.append(("kyutai-api-key", api_key))
 
     ws_options = {
-        "extra_headers": headers,
-        "compression": None,
-        "max_size": None,
+        "additional_headers": headers,     # v15 name
+        "max_size": None,                  # allowed (no limit)
         "ping_interval": 20,
         "ping_timeout": 20,
         "max_queue": None,
         "write_limit": 2**22,
         "open_timeout": 10,
         "close_timeout": 0.5,
+        # NOTE: v15 dropped the old "compression" kwarg; use "extensions" if needed.
     }
 
     t0 = time.perf_counter()
@@ -71,7 +71,7 @@ async def _run(server: str, text: str, voice_path: Optional[str], out_path: Path
     sample_rate = 24000
     pcm_accum: list[int] = []
 
-    async with websockets.connect(url, **ws_options) as ws:  # type: ignore
+    async with connect(url, **ws_options) as ws:  # type: ignore
         await ws.send(msgpack.packb({"type": "Text", "text": text}, use_bin_type=True))
         await ws.send(msgpack.packb({"type": "Flush"}, use_bin_type=True))
 
