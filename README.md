@@ -33,7 +33,7 @@ Notes:
   - DSM clone: `.data/delayed-streams-modeling` (override via `DSM_REPO_DIR`)
 
 #### Tuning knobs (concurrency, batching, CPU caps)
-- **TTS_BATCH_SIZE**: default `32`. Controls dynamic batching for `/api/tts_streaming`.
+- **TTS_BATCH_SIZE**: default `64`. Controls dynamic batching for `/api/tts_streaming`.
 - **TTS_NUM_WORKERS**: default `12`. Sets `num_workers` in the server config (concurrent synth tasks).
 - **TTS_MAX_QUEUE_LEN**: default `256`. Sets `max_queue_len` (if supported) to absorb brief bursts.
 - **TTS_RAYON_THREADS**: default `1`. Caps Candle/Rayon CPU workers to avoid CPU thrash.
@@ -61,7 +61,7 @@ What it does:
 
 Performance defaults (safe for L40S):
 - `n_q = 16` enforced for Mimi (0.75B EN requirement)
-- `batch_size = 32` in `[modules.tts_py]`
+- `batch_size = 64` in `[modules.tts_py]`
 - `num_workers = 12` at top-level
 - `RAYON_NUM_THREADS=1`, `TOKIO_WORKER_THREADS=4`, `MALLOC_ARENA_MAX=2`
 
