@@ -20,7 +20,8 @@ echo "[03-tts] Using config: ${CFG}"
 
 # Ensure Python libdir is on LD_LIBRARY_PATH for the Rust server
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-PY_BIN="${SCRIPT_DIR}/.venv/bin/python"
+REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+PY_BIN="${REPO_ROOT}/.venv/bin/python"
 if [ -x "${PY_BIN}" ]; then
   PY_LIBDIR="$(${PY_BIN} - <<'PY'
 import sysconfig; print(sysconfig.get_config_var("LIBDIR") or "")
@@ -42,10 +43,10 @@ if command -v "${TMUX_BIN}" >/dev/null 2>&1; then
   echo "[03-tts] Using tmux session '${SESSION}'"
   ${TMUX_BIN} has-session -t "${SESSION}" 2>/dev/null && ${TMUX_BIN} kill-session -t "${SESSION}"
   ${TMUX_BIN} new-session -d -s "${SESSION}" \
-    "cd '${SCRIPT_DIR}' && env LD_LIBRARY_PATH='${LD_LIBRARY_PATH}' uv run --frozen moshi-server worker --config '${CFG}' --addr '${ADDR}' --port '${PORT}' 2>&1 | tee '${LOG_DIR}/tts-server.log'"
+    "cd '${REPO_ROOT}' && env LD_LIBRARY_PATH='${LD_LIBRARY_PATH}' uv run --locked --frozen moshi-server worker --config '${CFG}' --addr '${ADDR}' --port '${PORT}' 2>&1 | tee '${LOG_DIR}/tts-server.log'"
 else
   echo "[03-tts] tmux not found; using nohup fallback"
-  nohup sh -c "cd '${SCRIPT_DIR}' && env LD_LIBRARY_PATH='${LD_LIBRARY_PATH}' uv run --frozen moshi-server worker --config '${CFG}' --addr '${ADDR}' --port '${PORT}'" \
+  nohup sh -c "cd '${REPO_ROOT}' && env LD_LIBRARY_PATH='${LD_LIBRARY_PATH}' uv run --locked --frozen moshi-server worker --config '${CFG}' --addr '${ADDR}' --port '${PORT}'" \
     > "${LOG_DIR}/tts-server.log" 2>&1 &
 fi
 

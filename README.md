@@ -13,6 +13,7 @@ Do not run these scripts locally; they are intended for RunPod pods with a CUDA 
 - **Config fetch & pin** to 0.75B EN and voice download: `scripts/02_fetch_tts_configs.sh`
 - **Server launcher** (tmux + health wait): `scripts/03_start_tts_server.sh`
 - **Smoke test** using DSM client (mandatory): `scripts/04_tts_smoke_test.sh`
+- **Test dependencies setup** with proper pip venv: `scripts/05_setup_test_deps.sh`
 - **Orchestrator**: `scripts/main.sh`
 - **Cleanup**: `scripts/stop.sh`
 
@@ -39,55 +40,51 @@ bash scripts/main.sh
 ```
 
 What it does:
-- Creates a `scripts/.venv` and installs pinned Python deps using `uv`
+- Creates a `.venv` at repo root and installs pinned Python deps using `uv`
 - Installs a pinned `moshi-server` version with CUDA support (`0.6.3` by default)
 - Clones DSM and writes `.data/server/config-tts-en-hf.toml` with the model set to `kyutai/tts-0.75b-en-public`, and enforces Mimi `n_q = 16`
 - Starts the Rust server via `uv run --frozen moshi-server worker --config ... --addr ... --port ...` (tmux if available, else nohup)
 - Waits until the port is open
 - Runs `scripts/04_tts_smoke_test.sh` to synthesize to a WAV file at `.data/out.wav` (no playback on server)
+- Sets up test dependencies with proper pip in the venv via `scripts/05_setup_test_deps.sh`
 
 Logs: `${TTS_LOG_DIR}/tts-server.log` (default `.data/logs/tts-server.log`).
 
 ### Benchmarks and warmup
 Two helper scripts generate audio to `.data/` and report useful metrics.
 
-Setup (once per pod/session):
+The `scripts/main.sh` automatically sets up test dependencies after the smoke test. To run the benchmarks:
 
 ```bash
-# Reuse the venv created by the installer
-source scripts/.venv/bin/activate
-pip install -r requirements.txt
+# Activate the venv (once per terminal session)
+source .venv/bin/activate
+
+# Run tests using activated environment
+python test/warmup.py
+python test/bench.py
+
+# Deactivate when done (optional)
+deactivate
 ```
 
-1) Warmup (primes caches; writes `.data/warmup/warmup.wav`):
+Optional flags:
 
 ```bash
-# simple
-python3 test/warmup.py
-
-# with flags
-python3 test/warmup.py --server 127.0.0.1:8089 \
+# Warmup with flags (using direct python path)
+.venv/bin/python test/warmup.py --server 127.0.0.1:8089 \
   --voice ".data/voices/ears/p004/freeform_speech_01.wav" \
   --text "Warming up the model and caches."
-```
 
-2) Benchmark (concurrent requests; writes `.data/bench/*.wav` and `test/results/bench_metrics.jsonl`):
-
-```bash
-# simple (uses embedded default text)
-python3 test/bench.py
-
-# with flags (inline texts)
-python3 test/bench.py --server 127.0.0.1:8089 \
+# Benchmark with flags (using direct python path)
+.venv/bin/python test/bench.py --server 127.0.0.1:8089 \
   --n 20 --concurrency 5 \
   --voice ".data/voices/ears/p004/freeform_speech_01.wav" \
   --text "Hello from Kyutai TTS." --text "Another line for the benchmark."
 
-# override with one text only
-python3 test/bench.py --text "This is a custom inline prompt."
+# Or with activated venv:
+python test/warmup.py --server 127.0.0.1:8089 \
+  --voice ".data/voices/ears/p004/freeform_speech_01.wav"
 ```
-
-Dependencies for these scripts are listed in `requirements.txt`. Ensure your active venv has them installed before running tests.
 
 ### Stop and clean up
 Stops the tmux session and removes caches and downloaded artifacts; preserves your repo and Jupyter/web console.
@@ -99,7 +96,7 @@ PURGE_LOGS=1 bash scripts/stop.sh
 ```
 
 Removed by `stop.sh`:
-- `scripts/.venv`, `scripts/pyproject.toml`, `scripts/uv.lock`
+- `.venv`, `scripts/pyproject.toml`, `scripts/uv.lock`
 - DSM clone at `${DSM_REPO_DIR:-/workspace/delayed-streams-modeling}`
 - Voices directory `${VOICES_DIR:-/workspace/voices}`
 - Common caches: Hugging Face, Torch, uv, Cargo registry/git

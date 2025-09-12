@@ -2,6 +2,7 @@
 set -euo pipefail
 
 BASE_DIR="$(cd "$(dirname "$0")" && pwd)"
+ROOT_DIR="${BASE_DIR%/scripts}"
 
 if [ -f "${BASE_DIR}/env.sh" ]; then
   # shellcheck disable=SC1090
@@ -21,6 +22,8 @@ echo "[smoke] Server: ${SERVER_URL}"
 # Write to WAV (no playback on servers)
 mkdir -p "$(dirname "${OUTPUT_WAV}")"
 printf "Hey, how are you?\n" > /tmp/tts.txt
+# Run from repo root where pyproject.toml/uv.lock are located
+cd "${ROOT_DIR}"
 if [ -f "${VOICE_PATH}" ]; then
   uv run "${DSM_DIR}/scripts/tts_rust_server.py" \
     /tmp/tts.txt "${OUTPUT_WAV}" \
