@@ -21,7 +21,7 @@ PORT="${TTS_PORT}"
 ADDR="${TTS_ADDR}"
 mkdir -p "${LOG_DIR}"
 
-echo "[03-tts] Starting moshi TTS server…"
+echo "[03-tts] Starting moshi TTS server (local build)…"
 echo "[03-tts] Using config: ${CFG}"
 
 # Show auth configuration so you know if the server requires API keys
@@ -47,6 +47,21 @@ if [ -n "${PY_LIBDIR}" ]; then
   export LD_LIBRARY_PATH="${PY_LIBDIR}:${LD_LIBRARY_PATH:-}"
 fi
 
+# Build local moshi-server binary from the checked-out repo to ensure we use local sources
+MOSHI_ROOT="${REPO_ROOT}/moshi"
+if [ -d "${MOSHI_ROOT}/rust/moshi-server" ]; then
+  echo "[03-tts] Building local moshi-server with CUDA…"
+  (cd "${MOSHI_ROOT}/rust/moshi-server" && cargo build -r --features=cuda | cat)
+  MOSHI_BIN="${MOSHI_ROOT}/rust/target/release/moshi-server"
+  if [ ! -x "$MOSHI_BIN" ]; then
+    # Some setups place target at repo root
+    MOSHI_BIN="${MOSHI_ROOT}/rust/target/release/moshi-server"
+  fi
+else
+  echo "[03-tts] ERROR: Local moshi repo not found at ${MOSHI_ROOT}." >&2
+  exit 1
+fi
+
 # Prefer tmux; fallback to nohup if tmux not installed
 TMUX_BIN="${TMUX_BIN:-tmux}"
 if command -v "${TMUX_BIN}" >/dev/null 2>&1; then
@@ -55,11 +70,11 @@ if command -v "${TMUX_BIN}" >/dev/null 2>&1; then
   # Raise file descriptor limit for high concurrency
   ulimit -n 1048576 || true
   ${TMUX_BIN} new-session -d -s "${SESSION}" \
-    "cd '${REPO_ROOT}' && env LD_LIBRARY_PATH='${LD_LIBRARY_PATH}' RAYON_NUM_THREADS='${RAYON_NUM_THREADS}' TOKIO_WORKER_THREADS='${TOKIO_WORKER_THREADS}' MALLOC_ARENA_MAX='${MALLOC_ARENA_MAX}' RUST_LOG='${RUST_LOG}' uv run --frozen moshi-server worker --config '${CFG}' --addr '${ADDR}' --port '${PORT}' 2>&1 | tee '${LOG_DIR}/tts-server.log'"
+    "cd '${REPO_ROOT}' && env LD_LIBRARY_PATH='${LD_LIBRARY_PATH}' RAYON_NUM_THREADS='${RAYON_NUM_THREADS}' TOKIO_WORKER_THREADS='${TOKIO_WORKER_THREADS}' MALLOC_ARENA_MAX='${MALLOC_ARENA_MAX}' RUST_LOG='${RUST_LOG}' uv run --frozen '${MOSHI_BIN}' worker --config '${CFG}' --addr '${ADDR}' --port '${PORT}' 2>&1 | tee '${LOG_DIR}/tts-server.log'"
 else
   echo "[03-tts] tmux not found; using nohup fallback"
   ulimit -n 1048576 || true
-  nohup sh -c "cd '${REPO_ROOT}' && env LD_LIBRARY_PATH='${LD_LIBRARY_PATH}' RAYON_NUM_THREADS='${RAYON_NUM_THREADS}' TOKIO_WORKER_THREADS='${TOKIO_WORKER_THREADS}' MALLOC_ARENA_MAX='${MALLOC_ARENA_MAX}' RUST_LOG='${RUST_LOG}' uv run --frozen moshi-server worker --config '${CFG}' --addr '${ADDR}' --port '${PORT}'" \
+  nohup sh -c "cd '${REPO_ROOT}' && env LD_LIBRARY_PATH='${LD_LIBRARY_PATH}' RAYON_NUM_THREADS='${RAYON_NUM_THREADS}' TOKIO_WORKER_THREADS='${TOKIO_WORKER_THREADS}' MALLOC_ARENA_MAX='${MALLOC_ARENA_MAX}' RUST_LOG='${RUST_LOG}' uv run --frozen '${MOSHI_BIN}' worker --config '${CFG}' --addr '${ADDR}' --port '${PORT}'" \
     > "${LOG_DIR}/tts-server.log" 2>&1 &
 fi
 

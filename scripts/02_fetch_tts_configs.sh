@@ -18,14 +18,7 @@ cp -f "${DSM_DIR}/configs/config-tts.toml" "${DEST_CFG}"
 # Point to the public, smaller English-only model
 sed -i 's#kyutai/tts-1.6b-en_fr#kyutai/tts-0.75b-en-public#g' "${DEST_CFG}" || true
 
-# Ensure Mimi codec tokens per frame (n_q) is set to 16, as required by 0.75B
-if grep -qE '^[[:space:]]*n_q[[:space:]]*=' "${DEST_CFG}"; then
-  sed -i 's/^[[:space:]]*n_q[[:space:]]*=.*/n_q = 16/' "${DEST_CFG}" || true
-else
-  printf '\n# Enforce Mimi codec tokens per frame for 0.75B EN\n# Do not reduce at inference time\nn_q = 16\n' >> "${DEST_CFG}"
-fi
-
-# Ensure modules.tts_py block exists with batch_size and n_q configured
+# Ensure modules.tts_py block exists with batch_size configured
 if ! grep -q "^\[modules.tts_py\]" "${DEST_CFG}"; then
   cat >> "${DEST_CFG}" <<EOF
 
@@ -33,7 +26,6 @@ if ! grep -q "^\[modules.tts_py\]" "${DEST_CFG}"; then
 type = "Py"
 path = "/api/tts_streaming"
 batch_size = ${TTS_BATCH_SIZE:-32}
-n_q = 16
 EOF
 else
   # Update existing batch_size value inside the tts_py block
@@ -45,35 +37,48 @@ else
   ' "${DEST_CFG}" > "${DEST_CFG}.tmp" && mv "${DEST_CFG}.tmp" "${DEST_CFG}"
 fi
 
-# Try to set a top-level num_workers if the key exists; otherwise append it once
-if grep -qE '^[[:space:]]*num_workers[[:space:]]*=' "${DEST_CFG}"; then
-  sed -i "s/^[[:space:]]*num_workers[[:space:]]*=.*/num_workers = ${TTS_NUM_WORKERS:-12}/" "${DEST_CFG}" || true
-else
-  printf '\n# Worker pool size for concurrent synthesis\nnum_workers = %s\n' "${TTS_NUM_WORKERS:-12}" >> "${DEST_CFG}"
-fi
+# Ensure modules.tts_py.py sub-table exists and set Python-side overrides for 0.75B EN
+VOICE_REL="${TTS_VOICE:-ears/p004/freeform_speech_01.wav}"
+VOICE_FOLDER_PATTERN="hf-snapshot://kyutai/tts-voices/ears/**/*.safetensors"
+if ! grep -q "^\[modules.tts_py.py\]" "${DEST_CFG}"; then
+  cat >> "${DEST_CFG}" <<EOF
 
-# Optionally set max_queue_len if supported by this build
-if grep -qE '^[[:space:]]*max_queue_len[[:space:]]*=' "${DEST_CFG}"; then
-  sed -i "s/^[[:space:]]*max_queue_len[[:space:]]*=.*/max_queue_len = ${TTS_MAX_QUEUE_LEN:-256}/" "${DEST_CFG}" || true
+[modules.tts_py.py]
+# Python module overrides for tts.py
+n_q = 16
+voice_folder = "${VOICE_FOLDER_PATTERN}"
+default_voice = "${VOICE_REL}"
+# cfg_coef and padding tuned for intelligibility
+cfg_coef = 2.0
+padding_between = 1
+EOF
 else
-  printf '\n# Queue length headroom for bursts (if supported)\nmax_queue_len = %s\n' "${TTS_MAX_QUEUE_LEN:-256}" >> "${DEST_CFG}"
+  awk -v voice_folder="${VOICE_FOLDER_PATTERN}" -v default_voice="${VOICE_REL}" '
+    BEGIN{inblk=0}
+    /^\[modules\.tts_py\.py\]/{inblk=1}
+    /^\[/{if(inblk){inblk=0}}
+    {
+      if(inblk && $1 ~ /^n_q/){$0="n_q = 16"}
+      if(inblk && $1 ~ /^voice_folder/){$0="voice_folder = \"" voice_folder "\""}
+      if(inblk && $1 ~ /^default_voice/){$0="default_voice = \"" default_voice "\""}
+      print
+    }
+  ' "${DEST_CFG}" > "${DEST_CFG}.tmp" && mv "${DEST_CFG}.tmp" "${DEST_CFG}"
 fi
 
 echo "[02-tts] Wrote ${DEST_CFG}"
 
-# Ensure requested voice asset is present
+# Optionally fetch a single reference WAV for tests; embeddings will be snapshot-downloaded lazily
 VOICES_DIR="${VOICES_DIR:-${ROOT_DIR}/.data/voices}"
-VOICE_REL="${TTS_VOICE:-ears/p004/freeform_speech_01.wav}"
 VOICE_DST="${VOICES_DIR}/${VOICE_REL}"
 mkdir -p "$(dirname "${VOICE_DST}")"
-
 if [ ! -f "${VOICE_DST}" ]; then
-  echo "[02-tts] Downloading voice asset: ${VOICE_REL}"
+  echo "[02-tts] Downloading voice WAV for smoke test: ${VOICE_REL}"
   URL="https://huggingface.co/kyutai/tts-voices/resolve/main/${VOICE_REL}"
-  if ! curl -fL -o "${VOICE_DST}.tmp" "${URL}" 2>/dev/null && ! wget -q -O "${VOICE_DST}.tmp" "${URL}"; then
-    echo "[02-tts] WARNING: Could not download voice asset from Hugging Face: ${VOICE_REL}"
-  else
+  if curl -fL -o "${VOICE_DST}.tmp" "${URL}" 2>/dev/null || wget -q -O "${VOICE_DST}.tmp" "${URL}"; then
     mv "${VOICE_DST}.tmp" "${VOICE_DST}"
-    echo "[02-tts] Saved voice to ${VOICE_DST}"
+    echo "[02-tts] Saved voice WAV to ${VOICE_DST}"
+  else
+    echo "[02-tts] WARNING: Could not download voice WAV: ${VOICE_REL}"
   fi
 fi

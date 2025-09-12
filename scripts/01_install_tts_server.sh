@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 source "$(dirname "$0")/env.sh"
-echo "[01-tts] Installing moshi TTS server…"
+echo "[01-tts] Preparing environment and Python deps for local moshi TTS server…"
 
 export PATH="${CUDA_PREFIX:-/usr/local/cuda}/bin:$HOME/.cargo/bin:$HOME/.local/bin:$PATH"
 
@@ -46,13 +46,20 @@ cd "${SCRIPT_DIR}/.."  # Go to repo root
 uv venv
 source .venv/bin/activate
 
-# Pull the Python dep manifests Kyutai uses for the TTS Rust server, pinned to a commit
-MOSHI_REF="aee53fc"  # update if you need a newer known-good ref
-[ -f pyproject.toml ] || wget -q "https://raw.githubusercontent.com/kyutai-labs/moshi/${MOSHI_REF}/rust/moshi-server/pyproject.toml"
-[ -f uv.lock ] || wget -q "https://raw.githubusercontent.com/kyutai-labs/moshi/${MOSHI_REF}/rust/moshi-server/uv.lock"
-
-# Install pinned Python dependencies into the venv
-uv sync --frozen --no-dev
+# Use local moshi repo's moshi-server Python manifests to install exact deps
+MOSHI_ROOT="$(pwd)/moshi"
+if [ -f "${MOSHI_ROOT}/rust/moshi-server/pyproject.toml" ] && [ -f "${MOSHI_ROOT}/rust/moshi-server/uv.lock" ]; then
+  echo "[01-tts] Installing Python deps from local moshi rust/moshi-server manifests"
+  cp -f "${MOSHI_ROOT}/rust/moshi-server/pyproject.toml" ./pyproject.toml
+  cp -f "${MOSHI_ROOT}/rust/moshi-server/uv.lock" ./uv.lock
+  uv sync --frozen --no-dev
+else
+  echo "[01-tts] WARNING: Local moshi manifests not found; falling back to fetching from GitHub"
+  MOSHI_REF="aee53fc"
+  [ -f pyproject.toml ] || wget -q "https://raw.githubusercontent.com/kyutai-labs/moshi/${MOSHI_REF}/rust/moshi-server/pyproject.toml"
+  [ -f uv.lock ] || wget -q "https://raw.githubusercontent.com/kyutai-labs/moshi/${MOSHI_REF}/rust/moshi-server/uv.lock"
+  uv sync --frozen --no-dev
+fi
 
 # Make Python's lib visible to the Rust build/runtime
 export LD_LIBRARY_PATH="$(python - <<'PY'
@@ -63,9 +70,4 @@ PY
 # GCC 15 workaround used by Kyutai (SentencePiece)
 export CXXFLAGS="-include cstdint"
 
-# Install/update the Rust server with CUDA, pinned version
-MOSHI_VERSION="0.6.3"
-# cargo uninstall moshi-server >/dev/null 2>&1 || true
-cargo install --features cuda "moshi-server@${MOSHI_VERSION}"
-
-echo "[01-tts] moshi-server: $(command -v moshi-server || echo '<not found>')"
+echo "[01-tts] Python deps ready; local moshi-server will be built in the start script."
