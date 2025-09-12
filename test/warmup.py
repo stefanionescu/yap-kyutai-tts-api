@@ -140,10 +140,10 @@ def main() -> int:
     ap.add_argument("--server", default="127.0.0.1:8089")
     ap.add_argument("--voice", default=str(DATA_DIR / "voices" / "ears" / "p004" / "freeform_speech_01.wav"))
     ap.add_argument("--text", default="Warming up the model and caches.")
-    ap.add_argument("--api-key", default=None)
+    ap.add_argument("--api-key", default=None, help="API key for authentication (defaults to KYUTAI_API_KEY env var or 'public_token')")
     args = ap.parse_args()
 
-    api_key = args.api_key or os.getenv("KYUTAI_API_KEY") or os.getenv("YAP_API_KEY") or "public_token"
+    api_key = args.api_key or os.getenv("KYUTAI_API_KEY") or "public_token"
     out = WARM_DIR / "warmup.wav"
     res = asyncio.run(_run(args.server, args.text, args.voice, out, api_key))
 

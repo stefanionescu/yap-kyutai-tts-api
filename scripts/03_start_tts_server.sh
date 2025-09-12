@@ -18,6 +18,10 @@ mkdir -p "${LOG_DIR}"
 echo "[03-tts] Starting moshi TTS server…"
 echo "[03-tts] Using config: ${CFG}"
 
+# Show auth configuration so you know if the server requires API keys
+echo "[03-tts] Auth configuration:"
+grep -n 'authorized_ids' "$CFG" || echo "No auth configured (server is open)"
+
 # Ensure Python libdir is on LD_LIBRARY_PATH for the Rust server
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -63,3 +67,8 @@ done
 
 echo "[03-tts] Bound at ws://${ADDR}:${PORT}"
 echo "[03-tts] Logs: ${LOG_DIR}/tts-server.log"
+
+# Always confirm GPU use at boot - Candle backend logs which device it picked
+echo "[03-tts] GPU/device initialization:"
+sleep 1
+tail -n +1 "${LOG_DIR}/tts-server.log" | grep -E "CUDA|Cuda|device|loading" -n || true
