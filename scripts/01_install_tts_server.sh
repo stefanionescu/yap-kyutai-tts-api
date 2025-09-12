@@ -41,8 +41,8 @@ if ! command -v uv >/dev/null 2>&1; then
   export PATH="$HOME/.local/bin:$PATH"
 fi
 
-# Create a controlled venv for the Python shim under scripts/
-cd "${SCRIPT_DIR}"
+# Create a controlled venv at repo root
+cd "${SCRIPT_DIR}/.."  # Go to repo root
 uv venv
 source .venv/bin/activate
 

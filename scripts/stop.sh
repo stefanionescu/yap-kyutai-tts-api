@@ -44,9 +44,9 @@ VOICE_ROOT="${VOICES_DIR:-${ROOT_DIR}/.data/voices}"
 DSM_DIR="${DSM_REPO_DIR:-${ROOT_DIR}/.data/delayed-streams-modeling}"
 
 # Remove Python venv and lockfiles/manifests used by uv in scripts/
-if [ -d "${SCRIPT_DIR}/.venv" ]; then
-  echo "[stop] Removing venv: ${SCRIPT_DIR}/.venv"
-  rm -rf "${SCRIPT_DIR}/.venv"
+if [ -d "${ROOT_DIR}/.venv" ]; then
+  echo "[stop] Removing venv: ${ROOT_DIR}/.venv"
+  rm -rf "${ROOT_DIR}/.venv"
 fi
 for f in "${SCRIPT_DIR}/pyproject.toml" "${SCRIPT_DIR}/uv.lock"; do
   [ -f "$f" ] && { echo "[stop] Removing $f"; rm -f "$f"; }

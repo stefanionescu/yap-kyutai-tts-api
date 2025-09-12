@@ -25,4 +25,7 @@ bash "${BASE_DIR}/03_start_tts_server.sh"
 echo "[main] Running smoke test"
 bash "${BASE_DIR}/04_tts_smoke_test.sh"
 
+echo "[main] Setting up test dependencies"
+bash "${BASE_DIR}/05_setup_test_deps.sh"
+
 echo "[main] Done. Server should be up at ws://${TTS_ADDR}:${TTS_PORT}"
