@@ -18,11 +18,11 @@ export PATH="${CUDA_PREFIX:-/usr/local/cuda}/bin:$HOME/.cargo/bin:$HOME/.local/b
 
 echo "[main] Starting TTS provisioning and server startup"
 
-"${BASE_DIR}/01_install_tts_server.sh"
-"${BASE_DIR}/02_fetch_tts_configs.sh"
-"${BASE_DIR}/03_start_tts_server.sh"
+bash "${BASE_DIR}/01_install_tts_server.sh"
+bash "${BASE_DIR}/02_fetch_tts_configs.sh"
+bash "${BASE_DIR}/03_start_tts_server.sh"
 
 echo "[main] Running smoke test"
-"${BASE_DIR}/04_tts_smoke_test.sh"
+bash "${BASE_DIR}/04_tts_smoke_test.sh"
 
 echo "[main] Done. Server should be up at ws://${TTS_ADDR}:${TTS_PORT}"
