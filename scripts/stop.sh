@@ -74,6 +74,26 @@ for p in "$HOME/.cache" "/root/.cache" "/workspace/.cache"; do
   [ -e "$p" ] && { echo "[stop] Purging cache root: $p"; rm -rf "$p"; }
 done
 
+# Remove NVIDIA CUDA compute caches and Torch extensions (can be hundreds of MB)
+for p in \
+  "$HOME/.nv/ComputeCache" \
+  "/root/.nv/ComputeCache" \
+  "/var/tmp/nv" \
+  "/var/tmp/NVIDIA" \
+  "$HOME/.cache/torch_extensions" \
+  "/root/.cache/torch_extensions"; do
+  [ -e "$p" ] && { echo "[stop] Removing GPU/extension cache: $p"; rm -rf "$p"; }
+done
+
+# Remove uv's shared data dir and binaries
+for p in \
+  "$HOME/.local/share/uv" \
+  "/root/.local/share/uv" \
+  "$HOME/.local/bin/uv" \
+  "/root/.local/bin/uv"; do
+  [ -e "$p" ] && { echo "[stop] Removing uv data/bin: $p"; rm -rf "$p"; }
+done
+
 # Remove installed moshi-server binary to free space (will reinstall on next run)
 if [ -f "$HOME/.cargo/bin/moshi-server" ]; then
   echo "[stop] Removing moshi-server binary"
