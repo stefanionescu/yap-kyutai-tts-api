@@ -1,10 +1,10 @@
 ## Yap Kyutai TTS API
 
-This repo runs a Text-To-Speech (TTS) service using Kyutai's DSM. It runs the Rust `moshi-server` with its Python shim activated via `uv`.
+This repo runs a Text-To-Speech (TTS) service using Kyutai's DSM. It runs the Rust `moshi-server`.
 
 - **Model**: `kyutai/tts-0.75b-en-public` (English-only)
 - **Defaults**: port `8000`, voice `ears/p004/freeform_speech_01.wav`
-- **Runtime**: Rust server launched via `uv run` so the pinned Python deps are active
+- **Runtime**: Rust server launched directly
 
 Do not run these scripts locally; they are intended for RunPod pods with a CUDA GPU.
 
@@ -31,8 +31,6 @@ TTS_PORT=8000
 TTS_LOG_DIR=/workspace/logs
 TTS_TMUX_SESSION=yap-tts
 TTS_CONFIG=${TTS_CONFIG:-${ROOT_DIR}/../server/config-tts-en-hf.toml}
-# Optional: auth token injected into config.authorized_ids at runtime
-YAP_API_KEY=public_token
 
 # Voice assets
 VOICES_DIR=${VOICES_DIR:-/workspace/voices}
@@ -54,7 +52,7 @@ What it does:
 - Creates a `scripts/.venv` and installs pinned Python deps using `uv`
 - Installs a pinned `moshi-server` version with CUDA support (`0.6.3` by default)
 - Clones DSM and writes `../server/config-tts-en-hf.toml` with the model set to `kyutai/tts-0.75b-en-public`, and enforces Mimi `n_q = 16`
-- Starts the Rust server via `uv run moshi-server worker --config ... --addr ... --port ...` in tmux
+- Starts the Rust server via `moshi-server worker --config ... --addr ... --port ...` in tmux
 - Waits until the port is open
 - Runs `scripts/04_tts_smoke_test.sh` to verify a basic synthesis request succeeds
 
@@ -89,8 +87,8 @@ Set `TTS_VOICE` in `scripts/env.sh` to any path from `kyutai/tts-voices` (e.g., 
 - `moshi-server`: `0.6.3` (edit `MOSHI_VERSION` in `scripts/01_install_tts_server.sh`)
 - Python manifests: from Moshi commit `aee53fc` (edit `MOSHI_REF` in `scripts/01_install_tts_server.sh`)
 
-### Why uv run?
-Kyutai's TTS Rust server depends on Python modules at runtime. Launching via `uv run --frozen` ensures the pinned environment is active (mirrors Kyutai's `start_tts.sh`).
+### Auth header
+`moshi-server` does not read `YAP_API_KEY` from the environment. If you enable auth in the TOML, clients must send the header `kyutai-api-key: <token>`, and the token must be included in the config's `authorized_ids` list. If `authorized_ids` is empty or missing, the server is open.
 
 ### Troubleshooting
 - "unrecognized arguments: worker": Ensure your PATH resolves the Rust `moshi-server` (not the Python CLI). The scripts install the Rust binary and run it via `uv`.
@@ -99,7 +97,7 @@ Kyutai's TTS Rust server depends on Python modules at runtime. Launching via `uv
 - Slow or contended GPU: Avoid running STT and TTS on the same GPU concurrently.
 
 ### Security
-If `YAP_API_KEY` is set, `authorized_ids = ["<key>"]` is injected at runtime into the config used by the server.
+To restrict access, set `authorized_ids = ["<token>"]` in your TOML config, and have clients send `kyutai-api-key: <token>`.
 
 ---
 

@@ -5,6 +5,19 @@ echo "[01-tts] Installing moshi TTS server…"
 
 export PATH="${CUDA_PREFIX:-/usr/local/cuda}/bin:$HOME/.cargo/bin:$HOME/.local/bin:$PATH"
 
+# --- Ensure native deps for openssl-sys and networking ---
+export DEBIAN_FRONTEND=noninteractive
+if command -v apt-get >/dev/null 2>&1; then
+  apt-get update -y
+  apt-get install -y --no-install-recommends pkg-config libssl-dev ca-certificates
+fi
+# OpenSSL discovery hints (common on Ubuntu/Debian)
+export OPENSSL_DIR=/usr/lib/x86_64-linux-gnu
+export OPENSSL_LIB_DIR=/usr/lib/x86_64-linux-gnu
+export OPENSSL_INCLUDE_DIR=/usr/include
+# Avoid uv hardlink warnings across filesystems
+export UV_LINK_MODE=copy
+
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 # Ensure cargo

@@ -7,10 +7,6 @@ if [ -f "${BASE_DIR}/env.sh" ]; then
   # shellcheck disable=SC1090
   source "${BASE_DIR}/env.sh"
 fi
-if [ -f "${BASE_DIR}/env.sh" ]; then
-  # shellcheck disable=SC1090
-  source "${BASE_DIR}/env.sh"
-fi
 
 SESSION="${TTS_TMUX_SESSION:-yap-tts}"
 TMUX_BIN="${TMUX_BIN:-tmux}"
@@ -44,21 +40,58 @@ if [ -d "${VOICE_ROOT}" ]; then
   rm -rf "${VOICE_ROOT}"
 fi
 
-# Clear Hugging Face caches and Kyutai-specific caches
-for p in \
-  "$HOME/.cache/huggingface" \
-  "/root/.cache/huggingface" \
-  "$HOME/.cache/torch" \
-  "/root/.cache/torch" \
-  "$HOME/.cache/uv" \
-  "/root/.cache/uv" \
-  "$HOME/.cargo/registry" \
-  "$HOME/.cargo/git" \
-  "$HOME/.cache/moshi" \
+# Clear Hugging Face caches and common caches
+# Include variations for HF_HOME and XDG paths
+CACHE_PATHS=(
+  "$HOME/.cache/huggingface"
+  "/root/.cache/huggingface"
+  "$HOME/.cache/huggingface_hub"
+  "/root/.cache/huggingface_hub"
+  "$HOME/.cache/torch"
+  "/root/.cache/torch"
+  "$HOME/.cache/uv"
+  "/root/.cache/uv"
+  "$HOME/.cargo/registry"
+  "$HOME/.cargo/git"
+  "$HOME/.cache/moshi"
   "/workspace/.cache/huggingface"
-do
+)
+
+# Add HF_HOME and XDG_CACHE_HOME if defined
+if [ -n "${HF_HOME:-}" ]; then
+  CACHE_PATHS+=("${HF_HOME}")
+fi
+if [ -n "${XDG_CACHE_HOME:-}" ]; then
+  CACHE_PATHS+=("${XDG_CACHE_HOME}/huggingface")
+fi
+
+for p in "${CACHE_PATHS[@]}"; do
   [ -e "$p" ] && { echo "[stop] Removing cache: $p"; rm -rf "$p"; }
 done
+
+# Optionally purge entire cache roots to reclaim more space
+for p in "$HOME/.cache" "/root/.cache" "/workspace/.cache"; do
+  [ -e "$p" ] && { echo "[stop] Purging cache root: $p"; rm -rf "$p"; }
+done
+
+# Remove installed moshi-server binary to free space (will reinstall on next run)
+if [ -f "$HOME/.cargo/bin/moshi-server" ]; then
+  echo "[stop] Removing moshi-server binary"
+  rm -f "$HOME/.cargo/bin/moshi-server"
+fi
+
+# Optionally remove Rust toolchains (saves a lot of space on ephemeral pods)
+if [ "${PURGE_RUSTUP:-1}" = "1" ] && [ -d "$HOME/.rustup" ]; then
+  echo "[stop] Removing rustup toolchains: $HOME/.rustup"
+  rm -rf "$HOME/.rustup"
+fi
+
+# Clean apt caches if available
+if command -v apt-get >/dev/null 2>&1; then
+  echo "[stop] Cleaning apt caches"
+  apt-get clean
+  rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/* || true
+fi
 
 # Keep logs by default; delete if requested
 if [ "${PURGE_LOGS:-0}" = "1" ]; then
