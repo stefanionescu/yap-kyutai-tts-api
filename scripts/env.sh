@@ -16,7 +16,7 @@ TTS_VOICE=${TTS_VOICE:-ears/p004/freeform_speech_01.wav}
 
 # Tuning knobs (override as needed)
 # Batching window/size for the TTS module
-TTS_BATCH_SIZE=${TTS_BATCH_SIZE:-32}
+TTS_BATCH_SIZE=${TTS_BATCH_SIZE:-64}
 # Worker threads inside moshi-server (concurrent synthesis tasks)
 TTS_NUM_WORKERS=${TTS_NUM_WORKERS:-12}
 # Optional server-side request queue length (if supported by your moshi build)

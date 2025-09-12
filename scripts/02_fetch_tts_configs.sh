@@ -25,11 +25,11 @@ if ! grep -q "^\[modules.tts_py\]" "${DEST_CFG}"; then
 [modules.tts_py]
 type = "Py"
 path = "/api/tts_streaming"
-batch_size = ${TTS_BATCH_SIZE:-32}
+batch_size = ${TTS_BATCH_SIZE:-64}
 EOF
 else
   # Update existing batch_size value inside the tts_py block
-  awk -v bs="${TTS_BATCH_SIZE:-32}" '
+  awk -v bs="${TTS_BATCH_SIZE:-64}" '
     BEGIN{inblk=0}
     /^\[modules\.tts_py\]/{inblk=1}
     /^\[/{if(inblk){inblk=0}}
