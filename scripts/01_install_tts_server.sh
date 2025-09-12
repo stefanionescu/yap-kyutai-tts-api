@@ -71,3 +71,5 @@ PY
 export CXXFLAGS="-include cstdint"
 
 echo "[01-tts] Python deps ready; local moshi-server will be built in the start script."
+echo "[01-tts] Ensuring huggingface_hub is available in the venv"
+uv pip install --python "$(pwd)/.venv/bin/python" huggingface_hub
