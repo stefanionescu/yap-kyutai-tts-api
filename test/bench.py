@@ -54,6 +54,24 @@ def _write_wav_int16(output_path: Path, pcm_int16: np.ndarray, sample_rate: int)
         wf.writeframes(pcm_int16.tobytes())
 
 
+def _extract_pcm(msg: dict) -> tuple[np.ndarray, int]:
+    """Return (int16 mono samples, sample_rate) or (empty, sr). Accept multiple shapes."""
+    sr = msg.get("sample_rate") or msg.get("sr") or 24000
+    # candidate fields in order of likelihood
+    candidates = ("pcm", "data", "pcm_i16", "pcm_f32", "samples")
+    for k in candidates:
+        if k in msg and msg[k] is not None:
+            arr = np.asarray(msg[k])
+            if arr.size == 0:
+                return np.empty(0, np.int16), sr
+            if arr.dtype.kind == "f":
+                arr = np.clip(arr, -1.0, 1.0)
+                return (arr * 32767.0).astype(np.int16), sr
+            # ints: assume already in [-32768,32767]
+            return arr.astype(np.int16, copy=False), sr
+    return np.empty(0, np.int16), sr
+
+
 async def _tts_one(
     server: str,
     text: str,
@@ -64,9 +82,7 @@ async def _tts_one(
 ) -> Dict[str, float]:
     url = _ws_url(server, voice_path)
 
-    headers = []
-    if api_key:
-        headers.append(("kyutai-api-key", api_key))
+    headers = {"kyutai-api-key": api_key} if api_key else {}
 
     ws_options = {
         "additional_headers": headers,     # v15 name
@@ -83,7 +99,7 @@ async def _tts_one(
     t0 = time.perf_counter()
     time_to_first_audio: Optional[float] = None
     sample_rate = 24000  # fallback if not provided by server
-    pcm_accum: List[int] = []  # accumulate as int16
+    pcm_chunks: List[np.ndarray] = []  # accumulate as int16 chunks
 
     async with connect(url, **ws_options) as ws:  # type: ignore
         # Send text then Flush to start synthesis
@@ -96,26 +112,13 @@ async def _tts_one(
             data = msgpack.unpackb(raw, raw=False)
             kind = data.get("type")
 
-            if kind in ("Audio", "Pcm", "AudioPcm"):
-                # Accept various keys: 'pcm' as floats [-1,1] or int16 values
-                pcm = data.get("pcm") or data.get("data") or []
-                if not pcm:
-                    continue
-                if time_to_first_audio is None:
-                    time_to_first_audio = time.perf_counter() - t0
-                # sample rate may be attached once
-                sr = data.get("sample_rate") or data.get("sr")
-                if isinstance(sr, int) and sr > 0:
+            if kind in ("Audio", "Pcm", "AudioPcm", "AudioChunk", "AudioF32", "AudioI16"):
+                pcm_i16, sr = _extract_pcm(data)
+                if pcm_i16.size > 0:
+                    if time_to_first_audio is None:
+                        time_to_first_audio = time.perf_counter() - t0
                     sample_rate = sr
-
-                arr = np.asarray(pcm)
-                if arr.dtype.kind in ("f",):
-                    arr = np.clip(arr, -1.0, 1.0)
-                    arr = (arr * 32767.0).astype(np.int16)
-                else:
-                    # assume already ints in range
-                    arr = arr.astype(np.int16)
-                pcm_accum.extend(arr.tolist())
+                    pcm_chunks.append(pcm_i16)
 
             elif kind in ("End", "Final", "Done", "Marker"):
                 # End of stream
@@ -129,8 +132,8 @@ async def _tts_one(
     wall_s = time.perf_counter() - t0
 
     # Write WAV and compute audio seconds
-    if pcm_accum:
-        pcm_int16 = np.asarray(pcm_accum, dtype=np.int16)
+    if pcm_chunks:
+        pcm_int16 = np.concatenate(pcm_chunks, dtype=np.int16)
         _write_wav_int16(out_path, pcm_int16, sample_rate)
         audio_s = len(pcm_int16) / float(sample_rate)
     else:
