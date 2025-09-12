@@ -71,10 +71,17 @@ async def _run(server: str, text: str, voice_path: Optional[str], out_path: Path
 
     async with connect(url, **ws_options) as ws:
         print(f"[debug] Connected to {url}")
-        print(f"[debug] Sending Text message: {text}")
-        await ws.send(msgpack.packb({"type": "Text", "text": text}, use_bin_type=True))
-        await ws.send(msgpack.packb({"type": "Flush"}, use_bin_type=True))
-        print(f"[debug] Sent Flush message")
+        print(f"[debug] Streaming text word-by-word: {text}")
+        
+        # Kyutai-style streaming: send text word by word
+        words = text.split()
+        for i, word in enumerate(words):
+            await ws.send(msgpack.packb({"type": "Text", "text": word}, use_bin_type=True))
+            print(f"[debug] Sent word {i+1}/{len(words)}: '{word}'")
+        
+        # End-of-sentence to trigger synthesis
+        await ws.send(msgpack.packb({"type": "Eos"}, use_bin_type=True))
+        print(f"[debug] Sent Eos message - synthesis should start")
 
         async for raw in ws:
             if not isinstance(raw, (bytes, bytearray)):
