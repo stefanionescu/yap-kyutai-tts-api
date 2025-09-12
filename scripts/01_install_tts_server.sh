@@ -9,7 +9,7 @@ export PATH="${CUDA_PREFIX:-/usr/local/cuda}/bin:$HOME/.cargo/bin:$HOME/.local/b
 export DEBIAN_FRONTEND=noninteractive
 if command -v apt-get >/dev/null 2>&1; then
   apt-get update -y
-  apt-get install -y --no-install-recommends pkg-config libssl-dev ca-certificates
+  apt-get install -y --no-install-recommends build-essential pkg-config libssl-dev libopus-dev cmake ca-certificates
 fi
 # OpenSSL discovery hints (common on Ubuntu/Debian)
 export OPENSSL_DIR=/usr/lib/x86_64-linux-gnu
