@@ -13,3 +13,13 @@ DSM_REPO_DIR=${DSM_REPO_DIR:-${ROOT_DIR}/.data/delayed-streams-modeling}
 # Voice assets
 VOICES_DIR=${VOICES_DIR:-${ROOT_DIR}/.data/voices}
 TTS_VOICE=${TTS_VOICE:-ears/p004/freeform_speech_01.wav}
+
+# Tuning knobs (override as needed)
+# Batching window/size for the TTS module
+TTS_BATCH_SIZE=${TTS_BATCH_SIZE:-32}
+# Worker threads inside moshi-server (concurrent synthesis tasks)
+TTS_NUM_WORKERS=${TTS_NUM_WORKERS:-12}
+# Rayon CPU threads (Candle). Keep low to avoid CPU thrash on GPU runs
+TTS_RAYON_THREADS=${TTS_RAYON_THREADS:-1}
+# Tokio runtime worker threads
+TTS_TOKIO_THREADS=${TTS_TOKIO_THREADS:-4}
