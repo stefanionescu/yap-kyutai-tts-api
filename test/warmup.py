@@ -46,13 +46,10 @@ def _write_wav_int16(output_path: Path, pcm_int16: np.ndarray, sample_rate: int)
         wf.writeframes(pcm_int16.tobytes())
 
 
-async def _run(server: str, text: str, voice_path: Optional[str], out_path: Path) -> dict:
+async def _run(server: str, text: str, voice_path: Optional[str], out_path: Path, api_key: str) -> dict:
     url = _ws_url(server, voice_path)
 
-    headers = []
-    api_key = os.getenv("KYUTAI_API_KEY") or os.getenv("YAP_API_KEY")
-    if api_key:
-        headers.append(("kyutai-api-key", api_key))
+    headers = [("kyutai-api-key", api_key)]
 
     ws_options = {
         "additional_headers": headers,     # v15 name
@@ -120,10 +117,14 @@ def main() -> int:
     ap.add_argument("--server", default="127.0.0.1:8089")
     ap.add_argument("--voice", default=str(DATA_DIR / "voices" / "ears" / "p004" / "freeform_speech_01.wav"))
     ap.add_argument("--text", default="Warming up the model and caches.")
+    ap.add_argument("--api-key", default=None, help="API key for authentication (defaults to env vars or 'public_token')")
     args = ap.parse_args()
+    
+    # Determine API key: CLI arg -> env vars -> default to public_token
+    api_key = args.api_key or os.getenv("KYUTAI_API_KEY") or os.getenv("YAP_API_KEY") or "public_token"
 
     out = WARM_DIR / "warmup.wav"
-    res = asyncio.run(_run(args.server, args.text, args.voice, out))
+    res = asyncio.run(_run(args.server, args.text, args.voice, out, api_key))
     print(f"Saved warmup WAV: {out}")
     print(json.dumps(res, indent=2))
     return 0
