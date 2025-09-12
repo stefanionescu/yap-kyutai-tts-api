@@ -1,4 +1,8 @@
 # -------- YAP TTS RUNPOD ENV --------
+# Compute ROOT_DIR fallback from this file location if not provided by caller
+__ENV_SH_DIR__="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="${ROOT_DIR:-${__ENV_SH_DIR__%/scripts}}"
+
 TTS_ADDR=0.0.0.0
 TTS_PORT=8000
 TTS_LOG_DIR=/workspace/logs
