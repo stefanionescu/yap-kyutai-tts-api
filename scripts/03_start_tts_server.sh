@@ -8,6 +8,12 @@ export PATH="${CUDA_PREFIX:-/usr/local/cuda}/bin:$HOME/.cargo/bin:$HOME/.local/b
 export CUDARC_NVRTC_PATH="${CUDARC_NVRTC_PATH:-${CUDA_PREFIX:-/usr/local/cuda}/lib64/libnvrtc.so}"
 export HF_HOME HF_HUB_ENABLE_HF_TRANSFER
 
+# Threading and allocator caps to reduce CPU thrash and make latency predictable
+export RAYON_NUM_THREADS="${TTS_RAYON_THREADS:-1}"
+export TOKIO_WORKER_THREADS="${TTS_TOKIO_THREADS:-4}"
+export MALLOC_ARENA_MAX="${MALLOC_ARENA_MAX:-2}"
+export RUST_LOG="${RUST_LOG:-info,moshi_server=debug,moshi=info}"
+
 CFG="${TTS_CONFIG}"
 LOG_DIR="${TTS_LOG_DIR}"
 SESSION="${TTS_TMUX_SESSION}"
@@ -46,11 +52,14 @@ TMUX_BIN="${TMUX_BIN:-tmux}"
 if command -v "${TMUX_BIN}" >/dev/null 2>&1; then
   echo "[03-tts] Using tmux session '${SESSION}'"
   ${TMUX_BIN} has-session -t "${SESSION}" 2>/dev/null && ${TMUX_BIN} kill-session -t "${SESSION}"
+  # Raise file descriptor limit for high concurrency
+  ulimit -n 1048576 || true
   ${TMUX_BIN} new-session -d -s "${SESSION}" \
-    "cd '${REPO_ROOT}' && env LD_LIBRARY_PATH='${LD_LIBRARY_PATH}' uv run --frozen moshi-server worker --config '${CFG}' --addr '${ADDR}' --port '${PORT}' 2>&1 | tee '${LOG_DIR}/tts-server.log'"
+    "cd '${REPO_ROOT}' && env LD_LIBRARY_PATH='${LD_LIBRARY_PATH}' RAYON_NUM_THREADS='${RAYON_NUM_THREADS}' TOKIO_WORKER_THREADS='${TOKIO_WORKER_THREADS}' MALLOC_ARENA_MAX='${MALLOC_ARENA_MAX}' RUST_LOG='${RUST_LOG}' uv run --frozen moshi-server worker --config '${CFG}' --addr '${ADDR}' --port '${PORT}' 2>&1 | tee '${LOG_DIR}/tts-server.log'"
 else
   echo "[03-tts] tmux not found; using nohup fallback"
-  nohup sh -c "cd '${REPO_ROOT}' && env LD_LIBRARY_PATH='${LD_LIBRARY_PATH}' uv run --frozen moshi-server worker --config '${CFG}' --addr '${ADDR}' --port '${PORT}'" \
+  ulimit -n 1048576 || true
+  nohup sh -c "cd '${REPO_ROOT}' && env LD_LIBRARY_PATH='${LD_LIBRARY_PATH}' RAYON_NUM_THREADS='${RAYON_NUM_THREADS}' TOKIO_WORKER_THREADS='${TOKIO_WORKER_THREADS}' MALLOC_ARENA_MAX='${MALLOC_ARENA_MAX}' RUST_LOG='${RUST_LOG}' uv run --frozen moshi-server worker --config '${CFG}' --addr '${ADDR}' --port '${PORT}'" \
     > "${LOG_DIR}/tts-server.log" 2>&1 &
 fi
 

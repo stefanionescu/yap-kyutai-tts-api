@@ -25,6 +25,33 @@ else
   printf '\n# Enforce Mimi codec tokens per frame for 0.75B EN\n# Do not reduce at inference time\nn_q = 16\n' >> "${DEST_CFG}"
 fi
 
+# Ensure modules.tts_py block exists with batch_size and n_q configured
+if ! grep -q "^\[modules.tts_py\]" "${DEST_CFG}"; then
+  cat >> "${DEST_CFG}" <<EOF
+
+[modules.tts_py]
+type = "Py"
+path = "/api/tts_streaming"
+batch_size = ${TTS_BATCH_SIZE:-32}
+n_q = 16
+EOF
+else
+  # Update existing batch_size value inside the tts_py block
+  awk -v bs="${TTS_BATCH_SIZE:-32}" '
+    BEGIN{inblk=0}
+    /^\[modules\.tts_py\]/{inblk=1}
+    /^\[/{if(inblk){inblk=0}}
+    {if(inblk && $1 ~ /^batch_size/){$0="batch_size = " bs}; print}
+  ' "${DEST_CFG}" > "${DEST_CFG}.tmp" && mv "${DEST_CFG}.tmp" "${DEST_CFG}"
+fi
+
+# Try to set a top-level num_workers if the key exists; otherwise append it once
+if grep -qE '^[[:space:]]*num_workers[[:space:]]*=' "${DEST_CFG}"; then
+  sed -i "s/^[[:space:]]*num_workers[[:space:]]*=.*/num_workers = ${TTS_NUM_WORKERS:-12}/" "${DEST_CFG}" || true
+else
+  printf '\n# Worker pool size for concurrent synthesis\nnum_workers = %s\n' "${TTS_NUM_WORKERS:-12}" >> "${DEST_CFG}"
+fi
+
 echo "[02-tts] Wrote ${DEST_CFG}"
 
 # Ensure requested voice asset is present
