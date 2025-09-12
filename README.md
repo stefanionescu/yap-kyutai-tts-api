@@ -3,7 +3,7 @@
 This repo runs a Text-To-Speech (TTS) service using Kyutai's DSM. It runs the Rust `moshi-server`.
 
 - **Model**: `kyutai/tts-0.75b-en-public` (English-only)
-- **Defaults**: port `8000`, voice `ears/p004/freeform_speech_01.wav`
+- **Defaults**: port `8089`, voice `ears/p004/freeform_speech_01.wav`
 - **Runtime**: Rust server launched via `uv run` (ensures Python deps are active)
 
 Do not run these scripts locally; they are intended for RunPod pods with a CUDA GPU.
@@ -38,8 +38,11 @@ TTS_VOICE=${TTS_VOICE:-ears/p004/freeform_speech_01.wav}
 ```
 
 Notes:
-- The config file is written to `../server/config-tts-en-hf.toml` (sibling directory to this repo). Adjust `TTS_CONFIG` if you want it inside this repo.
-- The default voice is fetched from the `kyutai/tts-voices` dataset into `${VOICES_DIR}`.
+- Data is stored inside this repo under `.data/` by default:
+  - Config: `.data/server/config-tts-en-hf.toml` (override via `TTS_CONFIG`)
+  - Logs: `.data/logs` (override via `TTS_LOG_DIR`)
+  - Voices: `.data/voices` (override via `VOICES_DIR`)
+  - DSM clone: `.data/delayed-streams-modeling` (override via `DSM_REPO_DIR`)
 
 ### Install, start, and smoke test
 Run on the pod:

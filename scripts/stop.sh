@@ -40,8 +40,8 @@ fi
 
 # Paths to clean, keeping repo and Jupyter/web console intact
 SCRIPT_DIR="${BASE_DIR}"
-VOICE_ROOT="${VOICES_DIR:-/workspace/voices}"
-DSM_DIR="${DSM_REPO_DIR:-/workspace/delayed-streams-modeling}"
+VOICE_ROOT="${VOICES_DIR:-${ROOT_DIR}/.data/voices}"
+DSM_DIR="${DSM_REPO_DIR:-${ROOT_DIR}/.data/delayed-streams-modeling}"
 
 # Remove Python venv and lockfiles/manifests used by uv in scripts/
 if [ -d "${SCRIPT_DIR}/.venv" ]; then
@@ -135,6 +135,17 @@ if [ -f "$HOME/.cargo/bin/moshi-server" ]; then
   echo "[stop] Removing moshi-server binary"
   rm -f "$HOME/.cargo/bin/moshi-server"
 fi
+
+# Migration cleanup: legacy external paths used by older defaults
+LEGACY_PATHS=(
+  "/workspace/voices"
+  "/workspace/delayed-streams-modeling"
+  "/workspace/logs"
+  "${ROOT_DIR}/../server"
+)
+for p in "${LEGACY_PATHS[@]}"; do
+  [ -e "$p" ] && { echo "[stop] Removing legacy path: $p"; rm -rf "$p"; }
+done
 
 # Optionally remove Rust toolchains (saves a lot of space on ephemeral pods)
 if [ "${PURGE_RUSTUP:-1}" = "1" ] && [ -d "$HOME/.rustup" ]; then
