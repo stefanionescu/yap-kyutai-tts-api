@@ -35,7 +35,7 @@ mkdir -p "$(dirname "${VOICE_DST}")"
 
 if [ ! -f "${VOICE_DST}" ]; then
   echo "[02-tts] Downloading voice asset: ${VOICE_REL}"
-  URL="https://huggingface.co/datasets/kyutai/tts-voices/resolve/main/${VOICE_REL}?download=true"
+  URL="https://huggingface.co/kyutai/tts-voices/resolve/main/${VOICE_REL}"
   if ! curl -fL -o "${VOICE_DST}.tmp" "${URL}" 2>/dev/null && ! wget -q -O "${VOICE_DST}.tmp" "${URL}"; then
     echo "[02-tts] WARNING: Could not download voice asset from Hugging Face: ${VOICE_REL}"
   else
