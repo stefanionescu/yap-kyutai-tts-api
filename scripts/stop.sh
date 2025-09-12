@@ -14,6 +14,30 @@ TMUX_BIN="${TMUX_BIN:-tmux}"
 echo "[stop] Stopping tmux session: ${SESSION}"
 ${TMUX_BIN} has-session -t "${SESSION}" 2>/dev/null && ${TMUX_BIN} kill-session -t "${SESSION}" || true
 
+# Also stop moshi-server if it was launched without tmux (nohup fallback)
+# Try to match by port first; fall back to a generic worker match
+PIDS=""
+if command -v pgrep >/dev/null 2>&1; then
+  if [ -n "${TTS_PORT:-}" ]; then
+    PIDS="$(pgrep -f "moshi-server.*worker.*--port[[:space:]]*${TTS_PORT}")" || true
+  fi
+  if [ -z "$PIDS" ]; then
+    PIDS="$(pgrep -f "moshi-server.*worker")" || true
+  fi
+else
+  PIDS="$(ps aux | grep -E "moshi-server.*worker" | grep -v grep | awk '{print $2}')" || true
+fi
+if [ -n "$PIDS" ]; then
+  echo "[stop] Killing moshi-server PIDs (non-tmux): $PIDS"
+  for pid in $PIDS; do
+    kill "$pid" 2>/dev/null || true
+  done
+  sleep 2
+  for pid in $PIDS; do
+    kill -9 "$pid" 2>/dev/null || true
+  done
+fi
+
 # Paths to clean, keeping repo and Jupyter/web console intact
 SCRIPT_DIR="${BASE_DIR}"
 VOICE_ROOT="${VOICES_DIR:-/workspace/voices}"
