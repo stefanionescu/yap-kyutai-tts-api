@@ -70,11 +70,11 @@ if command -v "${TMUX_BIN}" >/dev/null 2>&1; then
   # Raise file descriptor limit for high concurrency
   ulimit -n 1048576 || true
   ${TMUX_BIN} new-session -d -s "${SESSION}" \
-    "cd '${REPO_ROOT}' && env LD_LIBRARY_PATH='${LD_LIBRARY_PATH}' RAYON_NUM_THREADS='${RAYON_NUM_THREADS}' TOKIO_WORKER_THREADS='${TOKIO_WORKER_THREADS}' MALLOC_ARENA_MAX='${MALLOC_ARENA_MAX}' RUST_LOG='${RUST_LOG}' uv run --frozen '${MOSHI_BIN}' worker --config '${CFG}' --addr '${ADDR}' --port '${PORT}' 2>&1 | tee '${LOG_DIR}/tts-server.log'"
+    "cd '${REPO_ROOT}' && env LD_LIBRARY_PATH='${LD_LIBRARY_PATH}' RAYON_NUM_THREADS='${RAYON_NUM_THREADS}' TOKIO_WORKER_THREADS='${TOKIO_WORKER_THREADS}' MALLOC_ARENA_MAX='${MALLOC_ARENA_MAX}' RUST_LOG='${RUST_LOG}' uv run --with huggingface_hub --frozen '${MOSHI_BIN}' worker --config '${CFG}' --addr '${ADDR}' --port '${PORT}' 2>&1 | tee '${LOG_DIR}/tts-server.log'"
 else
   echo "[03-tts] tmux not found; using nohup fallback"
   ulimit -n 1048576 || true
-  nohup sh -c "cd '${REPO_ROOT}' && env LD_LIBRARY_PATH='${LD_LIBRARY_PATH}' RAYON_NUM_THREADS='${RAYON_NUM_THREADS}' TOKIO_WORKER_THREADS='${TOKIO_WORKER_THREADS}' MALLOC_ARENA_MAX='${MALLOC_ARENA_MAX}' RUST_LOG='${RUST_LOG}' uv run --frozen '${MOSHI_BIN}' worker --config '${CFG}' --addr '${ADDR}' --port '${PORT}'" \
+  nohup sh -c "cd '${REPO_ROOT}' && env LD_LIBRARY_PATH='${LD_LIBRARY_PATH}' RAYON_NUM_THREADS='${RAYON_NUM_THREADS}' TOKIO_WORKER_THREADS='${TOKIO_WORKER_THREADS}' MALLOC_ARENA_MAX='${MALLOC_ARENA_MAX}' RUST_LOG='${RUST_LOG}' uv run --with huggingface_hub --frozen '${MOSHI_BIN}' worker --config '${CFG}' --addr '${ADDR}' --port '${PORT}'" \
     > "${LOG_DIR}/tts-server.log" 2>&1 &
 fi
 
