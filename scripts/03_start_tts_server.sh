@@ -2,8 +2,10 @@
 set -euo pipefail
 source "$(dirname "$0")/env.lib.sh"
 
-export PATH="${CUDA_PREFIX}/bin:$HOME/.cargo/bin:$HOME/.local/bin:$PATH"
-export CUDARC_NVRTC_PATH="${CUDA_PREFIX}/lib64/libnvrtc.so"
+echo "[03-tts] Preparing environment"
+
+export PATH="${CUDA_PREFIX:-/usr/local/cuda}/bin:$HOME/.cargo/bin:$HOME/.local/bin:$PATH"
+export CUDARC_NVRTC_PATH="${CUDARC_NVRTC_PATH:-${CUDA_PREFIX:-/usr/local/cuda}/lib64/libnvrtc.so}"
 export HF_HOME HF_HUB_ENABLE_HF_TRANSFER
 
 CFG="${TTS_CONFIG}"
