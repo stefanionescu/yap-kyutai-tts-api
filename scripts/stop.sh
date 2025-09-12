@@ -55,6 +55,17 @@ CACHE_PATHS=(
   "$HOME/.cargo/git"
   "$HOME/.cache/moshi"
   "/workspace/.cache/huggingface"
+  "/workspace/.cache/huggingface_hub"
+  "/root/.cache/moshi"
+  "/workspace/.cache/torch"
+  "/workspace/.cache/uv"
+  "/workspace/.cache/moshi"
+  "$HOME/.cache/pip"
+  "/root/.cache/pip"
+  "/workspace/.cache/pip"
+  "$HOME/.cache/cmake"
+  "/root/.cache/cmake"
+  "/workspace/.cache/cmake"
 )
 
 # Add HF_HOME and XDG_CACHE_HOME if defined
@@ -81,7 +92,8 @@ for p in \
   "/var/tmp/nv" \
   "/var/tmp/NVIDIA" \
   "$HOME/.cache/torch_extensions" \
-  "/root/.cache/torch_extensions"; do
+  "/root/.cache/torch_extensions" \
+  "/workspace/.cache/torch_extensions"; do
   [ -e "$p" ] && { echo "[stop] Removing GPU/extension cache: $p"; rm -rf "$p"; }
 done
 
