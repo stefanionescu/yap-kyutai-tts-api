@@ -3,7 +3,7 @@ set -euo pipefail
 source "$(dirname "$0")/env.sh"
 echo "[02-tts] Fetching DSM repo for configs & scripts…"
 
-DSM_DIR="${DSM_REPO_DIR:-/workspace/delayed-streams-modeling}"
+DSM_DIR="${DSM_REPO_DIR:-${ROOT_DIR}/.data/delayed-streams-modeling}"
 if [ ! -d "${DSM_DIR}" ]; then
   git clone --depth=1 https://github.com/kyutai-labs/delayed-streams-modeling "${DSM_DIR}"
 else
@@ -11,7 +11,7 @@ else
 fi
 
 # Copy the reference TTS config into your repo and retarget the model to 0.75b EN
-DEST_CFG="${ROOT_DIR}/../server/config-tts-en-hf.toml"
+DEST_CFG="${TTS_CONFIG}"
 mkdir -p "$(dirname "${DEST_CFG}")"
 cp -f "${DSM_DIR}/configs/config-tts.toml" "${DEST_CFG}"
 
@@ -28,7 +28,7 @@ fi
 echo "[02-tts] Wrote ${DEST_CFG}"
 
 # Ensure requested voice asset is present
-VOICES_DIR="${VOICES_DIR:-/workspace/voices}"
+VOICES_DIR="${VOICES_DIR:-${ROOT_DIR}/.data/voices}"
 VOICE_REL="${TTS_VOICE:-ears/p004/freeform_speech_01.wav}"
 VOICE_DST="${VOICES_DIR}/${VOICE_REL}"
 mkdir -p "$(dirname "${VOICE_DST}")"

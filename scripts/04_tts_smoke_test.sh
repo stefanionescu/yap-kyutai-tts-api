@@ -10,9 +10,9 @@ fi
 # shellcheck disable=SC1090
 source "${BASE_DIR}/env.sh"
 
-DSM_DIR="${DSM_REPO_DIR:-/workspace/delayed-streams-modeling}"
+DSM_DIR="${DSM_REPO_DIR:-${ROOT_DIR}/.data/delayed-streams-modeling}"
 SERVER_URL="${YAP_PUBLIC_WS_URL:-ws://${YAP_CLIENT_HOST:-127.0.0.1}:${TTS_PORT}}"
-VOICE_PATH="${VOICES_DIR:-/workspace/voices}/${TTS_VOICE:-ears/p004/freeform_speech_01.wav}"
+VOICE_PATH="${VOICES_DIR:-${ROOT_DIR}/.data/voices}/${TTS_VOICE:-ears/p004/freeform_speech_01.wav}"
 
 echo "[smoke] Server: ${SERVER_URL}"
 [ -f "${VOICE_PATH}" ] && echo "[smoke] Voice:  ${VOICE_PATH}" || echo "[smoke] Voice not found (will use server default): ${VOICE_PATH}"
