@@ -3,7 +3,7 @@ set -euo pipefail
 source "$(dirname "$0")/env.lib.sh"
 echo "[01-tts] Installing moshi TTS server…"
 
-export PATH="${CUDA_PREFIX}/bin:$HOME/.cargo/bin:$HOME/.local/bin:$PATH"
+export PATH="${CUDA_PREFIX:-/usr/local/cuda}/bin:$HOME/.cargo/bin:$HOME/.local/bin:$PATH"
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 

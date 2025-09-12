@@ -14,7 +14,7 @@ fi
 # shellcheck disable=SC1090
 source "${BASE_DIR}/env.sh"
 
-export PATH="${CUDA_PREFIX}/bin:$HOME/.cargo/bin:$HOME/.local/bin:$PATH"
+export PATH="${CUDA_PREFIX:-/usr/local/cuda}/bin:$HOME/.cargo/bin:$HOME/.local/bin:$PATH"
 
 echo "[main] Starting TTS provisioning and server startup"
 
