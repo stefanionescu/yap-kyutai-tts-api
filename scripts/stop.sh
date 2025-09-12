@@ -64,6 +64,18 @@ if [ -d "${VOICE_ROOT}" ]; then
   rm -rf "${VOICE_ROOT}"
 fi
 
+# Remove smoke-test WAV outputs kept inside repo
+TEST_WAV="${ROOT_DIR}/.data/out.wav"
+if [ -f "${TEST_WAV}" ]; then
+  echo "[stop] Removing smoke-test WAV: ${TEST_WAV}"
+  rm -f "${TEST_WAV}"
+fi
+# Also remove any other top-level WAVs in .data (keeps voices under .data/voices)
+if ls "${ROOT_DIR}/.data/"*.wav >/dev/null 2>&1; then
+  echo "[stop] Removing top-level WAVs in ${ROOT_DIR}/.data"
+  rm -f "${ROOT_DIR}/.data/"*.wav || true
+fi
+
 # Clear Hugging Face caches and common caches
 # Include variations for HF_HOME and XDG paths
 CACHE_PATHS=(

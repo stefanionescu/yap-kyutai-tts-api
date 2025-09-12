@@ -13,16 +13,25 @@ source "${BASE_DIR}/env.sh"
 DSM_DIR="${DSM_REPO_DIR:-${ROOT_DIR}/.data/delayed-streams-modeling}"
 SERVER_URL="${YAP_PUBLIC_WS_URL:-ws://${YAP_CLIENT_HOST:-127.0.0.1}:${TTS_PORT}}"
 VOICE_PATH="${VOICES_DIR:-${ROOT_DIR}/.data/voices}/${TTS_VOICE:-ears/p004/freeform_speech_01.wav}"
+OUTPUT_WAV="${ROOT_DIR}/.data/out.wav"
 
 echo "[smoke] Server: ${SERVER_URL}"
 [ -f "${VOICE_PATH}" ] && echo "[smoke] Voice:  ${VOICE_PATH}" || echo "[smoke] Voice not found (will use server default): ${VOICE_PATH}"
 
-# From stdin → speaker (explicit URL). If voice exists, pass it.
+# Write to WAV (no playback on servers)
+mkdir -p "$(dirname "${OUTPUT_WAV}")"
+printf "Hey, how are you?\n" > /tmp/tts.txt
 if [ -f "${VOICE_PATH}" ]; then
-  echo "Hey, how are you?" | uv run "${DSM_DIR}/scripts/tts_rust_server.py" - - --url "${SERVER_URL}" --voice "${VOICE_PATH}"
+  uv run "${DSM_DIR}/scripts/tts_rust_server.py" \
+    /tmp/tts.txt "${OUTPUT_WAV}" \
+    --url "${SERVER_URL}" \
+    --voice "${VOICE_PATH}"
 else
-  echo "Hey, how are you?" | uv run "${DSM_DIR}/scripts/tts_rust_server.py" - - --url "${SERVER_URL}"
+  uv run "${DSM_DIR}/scripts/tts_rust_server.py" \
+    /tmp/tts.txt "${OUTPUT_WAV}" \
+    --url "${SERVER_URL}"
 fi
+echo "[smoke] Wrote: ${OUTPUT_WAV}"
 
 # Optional: pass a reference voice if your DSM client supports it
 # echo "Hello there" | uv run "${DSM_DIR}/scripts/tts_rust_server.py" - - --url "${SERVER_URL}" --voice "${VOICE_PATH}"
