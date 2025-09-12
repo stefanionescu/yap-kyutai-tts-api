@@ -77,6 +77,12 @@ if ls "${ROOT_DIR}/.data/"*.wav >/dev/null 2>&1; then
   rm -f "${ROOT_DIR}/.data/"*.wav || true
 fi
 
+# Remove warmup outputs directory if present
+if [ -d "${ROOT_DIR}/.data/warmup" ]; then
+  echo "[stop] Removing warmup directory: ${ROOT_DIR}/.data/warmup"
+  rm -rf "${ROOT_DIR}/.data/warmup"
+fi
+
 # Clear Hugging Face caches and common caches
 # Include variations for HF_HOME and XDG paths
 CACHE_PATHS=(
@@ -147,6 +153,12 @@ done
 if [ -f "$HOME/.cargo/bin/moshi-server" ]; then
   echo "[stop] Removing moshi-server binary"
   rm -f "$HOME/.cargo/bin/moshi-server"
+fi
+
+# Remove local Rust build artifacts for moshi to reclaim space
+if [ -d "${ROOT_DIR}/moshi/rust/target" ]; then
+  echo "[stop] Removing moshi build artifacts: ${ROOT_DIR}/moshi/rust/target"
+  rm -rf "${ROOT_DIR}/moshi/rust/target"
 fi
 
 # Migration cleanup: legacy external paths used by older defaults
