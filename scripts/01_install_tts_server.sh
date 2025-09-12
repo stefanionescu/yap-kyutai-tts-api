@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
-source "$(dirname "$0")/env.lib.sh"
+source "$(dirname "$0")/env.sh"
 echo "[01-tts] Installing moshi TTS server…"
 
 export PATH="${CUDA_PREFIX:-/usr/local/cuda}/bin:$HOME/.cargo/bin:$HOME/.local/bin:$PATH"

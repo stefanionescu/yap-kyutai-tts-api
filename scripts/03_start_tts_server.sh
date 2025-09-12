@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
-source "$(dirname "$0")/env.lib.sh"
+source "$(dirname "$0")/env.sh"
 
 echo "[03-tts] Preparing environment"
 
