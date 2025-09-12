@@ -96,9 +96,9 @@ PURGE_LOGS=1 bash scripts/stop.sh
 ```
 
 Removed by `stop.sh`:
-- `.venv`, `scripts/pyproject.toml`, `scripts/uv.lock`
-- DSM clone at `${DSM_REPO_DIR:-/workspace/delayed-streams-modeling}`
-- Voices directory `${VOICES_DIR:-/workspace/voices}`
+- `.venv`, `pyproject.toml`, `uv.lock`
+- DSM clone at `${DSM_REPO_DIR:-<repo>/.data/delayed-streams-modeling}`
+- Voices directory `${VOICES_DIR:-<repo>/.data/voices}`
 - Common caches: Hugging Face, Torch, uv, Cargo registry/git
 
 Preserved:
