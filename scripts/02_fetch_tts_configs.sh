@@ -18,7 +18,7 @@ cp -f "${DSM_DIR}/configs/config-tts.toml" "${DEST_CFG}"
 # Point to the public, smaller English-only model
 sed -i 's#kyutai/tts-1.6b-en_fr#kyutai/tts-0.75b-en-public#g' "${DEST_CFG}" || true
 
-# Ensure modules.tts_py block exists with batch_size configured
+# Ensure modules.tts_py block exists with batch_size and tokenization settings configured
 if ! grep -q "^\[modules.tts_py\]" "${DEST_CFG}"; then
   cat >> "${DEST_CFG}" <<EOF
 
@@ -26,17 +26,26 @@ if ! grep -q "^\[modules.tts_py\]" "${DEST_CFG}"; then
 type = "Py"
 path = "/api/tts_streaming"
 batch_size = ${TTS_BATCH_SIZE:-64}
+# Pin tokenizer and BOS for 0.75B EN model
+text_tokenizer_file = "hf://kyutai/tts-0.75b-en-public/tokenizer.json"
+text_bos_token = 32000
 EOF
 else
-  # Ensure batch_size exists or override inside the tts_py block
+  # Ensure batch_size and tokenization settings exist or override inside the tts_py block
   awk -v bs="${TTS_BATCH_SIZE:-64}" '
     BEGIN{inblk=0; inserted=0}
     /^\[modules\.tts_py\]/{print; inblk=1; inserted=0; next}
     {
       if(inblk){
-        if(!inserted){ print "batch_size = " bs; inserted=1 }
+        if(!inserted){ 
+          print "batch_size = " bs
+          print "# Pin tokenizer and BOS for 0.75B EN model"
+          print "text_tokenizer_file = \"hf://kyutai/tts-0.75b-en-public/tokenizer.json\""
+          print "text_bos_token = 32000"
+          inserted=1 
+        }
         if($0 ~ /^\[/){ inblk=0 }
-        if($1 ~ /^batch_size/){ next }
+        if($1 ~ /^batch_size|^text_tokenizer_file|^text_bos_token/){ next }
       }
       print
     }
@@ -45,7 +54,7 @@ fi
 
 # Ensure modules.tts_py.py sub-table exists and set Python-side overrides for 0.75B EN
 VOICE_REL="${TTS_VOICE:-ears/p004/freeform_speech_01.wav}"
-VOICE_FOLDER_PATTERN="hf-snapshot://kyutai/tts-voices/ears/**/*.safetensors"
+VOICE_FOLDER_PATTERN="${VOICES_DIR:-${ROOT_DIR}/.data/voices}"
 if ! grep -q "^\[modules.tts_py.py\]" "${DEST_CFG}"; then
   cat >> "${DEST_CFG}" <<EOF
 
@@ -54,13 +63,14 @@ if ! grep -q "^\[modules.tts_py.py\]" "${DEST_CFG}"; then
 n_q = 16
 voice_folder = "${VOICE_FOLDER_PATTERN}"
 default_voice = "${VOICE_REL}"
-# Low-latency defaults
-cfg_coef = 2.0
-interleaved_text_only = 0
+# Stability > raw TTFB for the first 200 ms
+interleaved_text_only = 2
 initial_padding = 0
-final_padding = 1
+final_padding = 2
+max_padding = 4
 padding_between = 0
-max_padding = 2
+padding_bonus = 0.5
+cfg_coef = 1.2
 EOF
 else
   awk -v voice_folder="${VOICE_FOLDER_PATTERN}" -v default_voice="${VOICE_REL}" '
@@ -71,12 +81,12 @@ else
       if(inblk && $1 ~ /^n_q/){$0="n_q = 16"}
       if(inblk && $1 ~ /^voice_folder/){$0="voice_folder = \"" voice_folder "\""}
       if(inblk && $1 ~ /^default_voice/){$0="default_voice = \"" default_voice "\""}
-      if(inblk && $1 ~ /^cfg_coef/){$0="cfg_coef = 2.0"}
+      if(inblk && $1 ~ /^cfg_coef/){$0="cfg_coef = 1.2"}
       if(inblk && $1 ~ /^padding_between/){$0="padding_between = 0"}
-      if(inblk && $1 ~ /^interleaved_text_only/){$0="interleaved_text_only = 0"}
+      if(inblk && $1 ~ /^interleaved_text_only/){$0="interleaved_text_only = 2"}
       if(inblk && $1 ~ /^initial_padding/){$0="initial_padding = 0"}
-      if(inblk && $1 ~ /^final_padding/){$0="final_padding = 1"}
-      if(inblk && $1 ~ /^max_padding/){$0="max_padding = 2"}
+      if(inblk && $1 ~ /^final_padding/){$0="final_padding = 2"}
+      if(inblk && $1 ~ /^max_padding/){$0="max_padding = 4"}
       print
     }
   ' "${DEST_CFG}" > "${DEST_CFG}.tmp" && mv "${DEST_CFG}.tmp" "${DEST_CFG}"

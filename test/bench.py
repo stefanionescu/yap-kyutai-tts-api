@@ -104,10 +104,30 @@ async def _tts_one(
     pcm_chunks: List[np.ndarray] = []  # accumulate as int16 chunks
 
     async with connect(url, **ws_options) as ws:  # type: ignore
-        # Kyutai-style streaming: send text word by word, then Eos to trigger synthesis
-        words = text.split()
-        for word in words:
-            await ws.send(msgpack.packb({"type": "Text", "text": word}, use_bin_type=True))
+        # Kyutai-style streaming: send text in ~8-token chunks with proper spacing, then Eos to trigger synthesis
+        def create_chunks(text: str, target_tokens_per_chunk: int = 8) -> List[str]:
+            """Split text into chunks of approximately target_tokens_per_chunk tokens."""
+            words = text.split()
+            chunks = []
+            current_chunk = []
+            
+            for word in words:
+                current_chunk.append(word)
+                # Rough estimate: average ~1.3 tokens per word for English
+                if len(current_chunk) >= max(1, target_tokens_per_chunk // 1.3):
+                    chunks.append(" ".join(current_chunk))
+                    current_chunk = []
+            
+            if current_chunk:
+                chunks.append(" ".join(current_chunk))
+            
+            return chunks
+        
+        chunks = create_chunks(text)
+        for i, chunk in enumerate(chunks):
+            # Add leading space to every chunk except the very first
+            fragment = ((" " if i > 0 else "") + chunk)
+            await ws.send(msgpack.packb({"type": "Text", "text": fragment}, use_bin_type=True))
         await ws.send(msgpack.packb({"type": "Eos"}, use_bin_type=True))
 
         async for raw in ws:  # server sends binary msgpack frames

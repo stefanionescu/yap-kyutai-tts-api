@@ -6,7 +6,7 @@ Yap TTS WebSocket client.
 - Sends text (word-by-word) and receives streaming PCM chunks
 - Aggregates all audio and saves a WAV file under ROOT/audio/
 - Tracks metrics similar to other test files (TTFB, connect, handshake)
-- Supports RunPod env vars: RUNPOD_TCP_HOST, RUNPOD_TCP_PORT, RUNPOD_API_KEY
+- Supports env vars: RUNPOD_TCP_HOST, RUNPOD_TCP_PORT, RUNPOD_API_KEY, KYUTAI_API_KEY
 """
 from __future__ import annotations
 
@@ -20,17 +20,19 @@ from typing import List, Optional, Tuple
 
 import msgpack  # type: ignore
 import numpy as np  # type: ignore
+from dotenv import load_dotenv  # type: ignore
 from websockets.asyncio.client import connect  # type: ignore
 
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 AUDIO_DIR = ROOT_DIR / "audio"
 AUDIO_DIR.mkdir(parents=True, exist_ok=True)
-RESULTS_DIR = ROOT_DIR / "test" / "results"
-RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+
+# Load environment variables from .env file
+load_dotenv(ROOT_DIR / ".env")
 
 DEFAULT_TEXT = (
-    "This is a Yap TTS client test. Hello there! We are streaming audio from the server."
+    "Hey dude! It's an honor to meet you!"
 )
 
 
@@ -91,9 +93,14 @@ def parse_args() -> argparse.Namespace:
         help="Text to synthesize (repeat flag for multiple sentences)",
     )
     ap.add_argument(
-        "--api-key",
-        default=(os.getenv("RUNPOD_API_KEY") or os.getenv("KYUTAI_API_KEY") or "public_token"),
-        help="API key for server auth (header: kyutai-api-key)",
+        "--kyutai-api-key",
+        default=os.getenv("KYUTAI_API_KEY") or "public_token",
+        help="Kyutai API key (header: kyutai-api-key), defaults to 'public_token'",
+    )
+    ap.add_argument(
+        "--runpod-api-key",
+        default=os.getenv("RUNPOD_API_KEY"),
+        help="RunPod TCP API key",
     )
     ap.add_argument(
         "--outfile",
@@ -116,10 +123,21 @@ def _compose_server_from_host_port(host: str, port: int, secure: bool) -> str:
 
 
 async def tts_client(
-    server: str, voice: Optional[str], texts: List[str], api_key: Optional[str], out_path: Path
+    server: str,
+    voice: Optional[str],
+    texts: List[str],
+    kyutai_api_key: Optional[str],
+    runpod_api_key: Optional[str],
+    out_path: Path,
 ) -> dict:
     url = _ws_url(server, voice)
-    headers = {"kyutai-api-key": api_key} if api_key else {}
+    headers = {}
+    # Always send kyutai-api-key if we have one (including default "public_token")
+    if kyutai_api_key:
+        headers["kyutai-api-key"] = kyutai_api_key
+    if runpod_api_key:
+        headers["runpod-api-key"] = runpod_api_key
+        headers["Authorization"] = f"Bearer {runpod_api_key}"
 
     ws_options = {
         "additional_headers": headers,  # websockets v15 naming
@@ -156,10 +174,34 @@ async def tts_client(
             handshake_ms = 0.0
             first_frame = None
 
-        # Send text word-by-word, then Eos
+        # Send text in ~8-token chunks with proper spacing, then Eos
+        def create_chunks(text: str, target_tokens_per_chunk: int = 8) -> List[str]:
+            """Split text into chunks of approximately target_tokens_per_chunk tokens."""
+            words = text.split()
+            chunks = []
+            current_chunk = []
+            
+            for word in words:
+                current_chunk.append(word)
+                # Rough estimate: average ~1.3 tokens per word for English
+                if len(current_chunk) >= max(1, target_tokens_per_chunk // 1.3):
+                    chunks.append(" ".join(current_chunk))
+                    current_chunk = []
+            
+            if current_chunk:
+                chunks.append(" ".join(current_chunk))
+            
+            return chunks
+        
+        # Send all text as chunked streams
+        all_chunks = []
         for text in texts:
-            for word in text.split():
-                await ws.send(msgpack.packb({"type": "Text", "text": word}, use_bin_type=True))
+            all_chunks.extend(create_chunks(text))
+        
+        for i, chunk in enumerate(all_chunks):
+            # Add leading space to every chunk except the very first
+            fragment = ((" " if i > 0 else "") + chunk)
+            await ws.send(msgpack.packb({"type": "Text", "text": fragment}, use_bin_type=True))
         await ws.send(msgpack.packb({"type": "Eos"}, use_bin_type=True))
 
         # Process the first frame (if any) before main loop
@@ -241,10 +283,6 @@ async def tts_client(
         "handshake_ms": float(handshake_ms),
     }
 
-    # Persist metrics alongside other tests
-    with open(RESULTS_DIR / "client_metrics.jsonl", "a", encoding="utf-8") as f:
-        f.write(json.dumps(metrics, ensure_ascii=False) + "\n")
-
     return metrics
 
 
@@ -267,7 +305,16 @@ def main() -> None:
     print(f"Out:    {out}")
     print(f"Text(s): {len(texts)}")
 
-    res = asyncio.run(tts_client(server_str, args.voice, texts, args.api_key, out))
+    res = asyncio.run(
+        tts_client(
+            server_str,
+            args.voice,
+            texts,
+            args.kyutai_api_key,
+            args.runpod_api_key,
+            out,
+        )
+    )
     print("\n== Result ==")
     print(f"Saved: {res['outfile']}")
     print(f"TTFB:  {res['ttfb_s']:.3f}s")
