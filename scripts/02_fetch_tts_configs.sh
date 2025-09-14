@@ -28,12 +28,18 @@ path = "/api/tts_streaming"
 batch_size = ${TTS_BATCH_SIZE:-64}
 EOF
 else
-  # Update existing batch_size value inside the tts_py block
+  # Ensure batch_size exists or override inside the tts_py block
   awk -v bs="${TTS_BATCH_SIZE:-64}" '
-    BEGIN{inblk=0}
-    /^\[modules\.tts_py\]/{inblk=1}
-    /^\[/{if(inblk){inblk=0}}
-    {if(inblk && $1 ~ /^batch_size/){$0="batch_size = " bs}; print}
+    BEGIN{inblk=0; inserted=0}
+    /^\[modules\.tts_py\]/{print; inblk=1; inserted=0; next}
+    {
+      if(inblk){
+        if(!inserted){ print "batch_size = " bs; inserted=1 }
+        if($0 ~ /^\[/){ inblk=0 }
+        if($1 ~ /^batch_size/){ next }
+      }
+      print
+    }
   ' "${DEST_CFG}" > "${DEST_CFG}.tmp" && mv "${DEST_CFG}.tmp" "${DEST_CFG}"
 fi
 
