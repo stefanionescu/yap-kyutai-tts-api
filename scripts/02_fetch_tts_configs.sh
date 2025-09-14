@@ -18,6 +18,51 @@ cp -f "${DSM_DIR}/configs/config-tts.toml" "${DEST_CFG}"
 # Point to the public, smaller English-only model
 sed -i 's#kyutai/tts-1.6b-en_fr#kyutai/tts-0.75b-en-public#g' "${DEST_CFG}" || true
 
+# Ensure the top-level tokenizer settings exist (root of TOML, before any [table])
+#  - Use the SentencePiece text tokenizer shipped with 0.75B EN
+#  - Align with model config: text_card=8000, existing_text_padding_id=3
+#  - Standard SPM BOS/EOS ids
+TEXT_SPM="hf://kyutai/tts-0.75b-en-public/tokenizer_spm_8k_en_fr_audio.model"
+# Remove any wrong tokenizer.json occurrences anywhere
+sed -i '/tokenizer\.json/d' "${DEST_CFG}"
+
+# Find the first table header line to keep our top-level keys truly at root
+FIRST_HDR_LINE=$(grep -n '^\[' "${DEST_CFG}" | head -n 1 | cut -d: -f1 || true)
+if [ -n "${FIRST_HDR_LINE:-}" ]; then
+  # Split into head (root) and tail (tables)
+  head -n "$((FIRST_HDR_LINE - 1))" "${DEST_CFG}" \
+    | sed -E \
+        -e '/^text_tokenizer_file\s*=.*/d' \
+        -e '/^text_card\s*=.*/d' \
+        -e '/^existing_text_padding_id\s*=.*/d' \
+        -e '/^text_bos_token\s*=.*/d' \
+        -e '/^text_eos_token\s*=.*/d' \
+    > "${DEST_CFG}.head"
+  cat > "${DEST_CFG}.root_keys" <<EOF
+
+# --- Text tokenizer (Kyutai TTS 0.75B EN) ---
+text_tokenizer_file = "${TEXT_SPM}"
+text_card = 8000
+existing_text_padding_id = 3
+text_bos_token = 1
+text_eos_token = 2
+EOF
+  tail -n +"${FIRST_HDR_LINE}" "${DEST_CFG}" > "${DEST_CFG}.tail"
+  cat "${DEST_CFG}.head" "${DEST_CFG}.root_keys" "${DEST_CFG}.tail" > "${DEST_CFG}.tmp" && mv "${DEST_CFG}.tmp" "${DEST_CFG}"
+  rm -f "${DEST_CFG}.head" "${DEST_CFG}.root_keys" "${DEST_CFG}.tail"
+else
+  # No tables found: just append the block at the end (still root)
+  cat >> "${DEST_CFG}" <<EOF
+
+# --- Text tokenizer (Kyutai TTS 0.75B EN) ---
+text_tokenizer_file = "${TEXT_SPM}"
+text_card = 8000
+existing_text_padding_id = 3
+text_bos_token = 1
+text_eos_token = 2
+EOF
+fi
+
 # Ensure modules.tts_py block exists with batch_size and tokenization settings configured
 if ! grep -q "^\[modules.tts_py\]" "${DEST_CFG}"; then
   cat >> "${DEST_CFG}" <<EOF
@@ -28,6 +73,7 @@ path = "/api/tts_streaming"
 batch_size = ${TTS_BATCH_SIZE:-64}
 # Pin text tokenizer (SentencePiece) and BOS for 0.75B EN model
 text_tokenizer_file = "hf://kyutai/tts-0.75b-en-public/tokenizer_spm_8k_en_fr_audio.model"
+text_bos_token = 1
 EOF
 else
   # Ensure batch_size and tokenization settings exist or override inside the tts_py block
@@ -40,6 +86,7 @@ else
           print "batch_size = " bs
           print "# Pin tokenizer and BOS for 0.75B EN model"
           print "text_tokenizer_file = \"hf://kyutai/tts-0.75b-en-public/tokenizer_spm_8k_en_fr_audio.model\""
+          print "text_bos_token = 1"
           inserted=1 
         }
         if($0 ~ /^\[/){ inblk=0 }
