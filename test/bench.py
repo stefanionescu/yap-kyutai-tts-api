@@ -104,8 +104,8 @@ async def _tts_one(
     pcm_chunks: List[np.ndarray] = []  # accumulate as int16 chunks
 
     async with connect(url, **ws_options) as ws:  # type: ignore
-        # Kyutai-style streaming: send text in ~8-token chunks with proper spacing, then Eos to trigger synthesis
-        def create_chunks(text: str, target_tokens_per_chunk: int = 8) -> List[str]:
+        # Kyutai-style streaming: send text in ~12-token chunks with proper spacing, then Eos to trigger synthesis
+        def create_chunks(text: str, target_tokens_per_chunk: int = 12) -> List[str]:
             """Split text into chunks of approximately target_tokens_per_chunk tokens."""
             words = text.split()
             chunks = []
@@ -125,8 +125,8 @@ async def _tts_one(
         
         chunks = create_chunks(text)
         for i, chunk in enumerate(chunks):
-            # Add leading space to every chunk except the very first
-            fragment = ((" " if i > 0 else "") + chunk)
+            # Add leading space to every chunk, including the first, for consistent SPM segmentation
+            fragment = (" " + chunk)
             await ws.send(msgpack.packb({"type": "Text", "text": fragment}, use_bin_type=True))
         await ws.send(msgpack.packb({"type": "Eos"}, use_bin_type=True))
 
