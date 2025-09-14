@@ -109,13 +109,13 @@ n_q = 16
 voice_folder = "${VOICE_FOLDER_PATTERN}"
 default_voice = "${VOICE_REL}"
 # Stability > raw TTFB for the first 200 ms
-interleaved_text_only = 2
-initial_padding = 0
+interleaved_text_only = 1
+initial_padding = 1
 final_padding = 2
 max_padding = 4
-padding_between = 0
-padding_bonus = 0.5
-cfg_coef = 1.2
+padding_between = 1
+padding_bonus = 1.0
+cfg_coef = 1.0
 EOF
 else
   awk -v voice_folder="${VOICE_FOLDER_PATTERN}" -v default_voice="${VOICE_REL}" '
@@ -126,12 +126,13 @@ else
       if(inblk && $1 ~ /^n_q/){$0="n_q = 16"}
       if(inblk && $1 ~ /^voice_folder/){$0="voice_folder = \"" voice_folder "\""}
       if(inblk && $1 ~ /^default_voice/){$0="default_voice = \"" default_voice "\""}
-      if(inblk && $1 ~ /^cfg_coef/){$0="cfg_coef = 1.2"}
-      if(inblk && $1 ~ /^padding_between/){$0="padding_between = 0"}
-      if(inblk && $1 ~ /^interleaved_text_only/){$0="interleaved_text_only = 2"}
-      if(inblk && $1 ~ /^initial_padding/){$0="initial_padding = 0"}
+      if(inblk && $1 ~ /^cfg_coef/){$0="cfg_coef = 1.0"}
+      if(inblk && $1 ~ /^padding_between/){$0="padding_between = 1"}
+      if(inblk && $1 ~ /^interleaved_text_only/){$0="interleaved_text_only = 1"}
+      if(inblk && $1 ~ /^initial_padding/){$0="initial_padding = 1"}
       if(inblk && $1 ~ /^final_padding/){$0="final_padding = 2"}
       if(inblk && $1 ~ /^max_padding/){$0="max_padding = 4"}
+      if(inblk && $1 ~ /^padding_bonus/){$0="padding_bonus = 1.0"}
       print
     }
   ' "${DEST_CFG}" > "${DEST_CFG}.tmp" && mv "${DEST_CFG}.tmp" "${DEST_CFG}"

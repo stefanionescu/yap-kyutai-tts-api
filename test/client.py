@@ -174,8 +174,8 @@ async def tts_client(
             handshake_ms = 0.0
             first_frame = None
 
-        # Send text in ~8-token chunks with proper spacing, then Eos
-        def create_chunks(text: str, target_tokens_per_chunk: int = 8) -> List[str]:
+        # Send text in ~12-token chunks with proper spacing, then Eos
+        def create_chunks(text: str, target_tokens_per_chunk: int = 12) -> List[str]:
             """Split text into chunks of approximately target_tokens_per_chunk tokens."""
             words = text.split()
             chunks = []
@@ -199,8 +199,8 @@ async def tts_client(
             all_chunks.extend(create_chunks(text))
         
         for i, chunk in enumerate(all_chunks):
-            # Add leading space to every chunk except the very first
-            fragment = ((" " if i > 0 else "") + chunk)
+            # Add leading space to every chunk, including the first, to keep SPM segmentation consistent
+            fragment = (" " + chunk)
             await ws.send(msgpack.packb({"type": "Text", "text": fragment}, use_bin_type=True))
         await ws.send(msgpack.packb({"type": "Eos"}, use_bin_type=True))
 

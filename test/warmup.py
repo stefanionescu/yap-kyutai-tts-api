@@ -72,10 +72,10 @@ async def _run(server: str, text: str, voice_path: Optional[str], out_path: Path
 
     async with connect(url, **ws_options) as ws:
         print(f"[debug] Connected to {url}")
-        print(f"[debug] Streaming text in ~8-token chunks: {text}")
+        print(f"[debug] Streaming text in ~12-token chunks: {text}")
         
-        # Kyutai-style streaming: send text in ~8-token chunks with proper spacing
-        def create_chunks(text: str, target_tokens_per_chunk: int = 8) -> list[str]:
+        # Kyutai-style streaming: send text in ~12-token chunks with proper spacing
+        def create_chunks(text: str, target_tokens_per_chunk: int = 12) -> list[str]:
             """Split text into chunks of approximately target_tokens_per_chunk tokens."""
             words = text.split()
             chunks = []
@@ -95,8 +95,8 @@ async def _run(server: str, text: str, voice_path: Optional[str], out_path: Path
         
         chunks = create_chunks(text)
         for i, chunk in enumerate(chunks):
-            # Add leading space to every chunk except the very first
-            fragment = ((" " if i > 0 else "") + chunk)
+            # Add leading space to every chunk, including the first, to keep SPM segmentation consistent
+            fragment = (" " + chunk)
             await ws.send(msgpack.packb({"type": "Text", "text": fragment}, use_bin_type=True))
             print(f"[debug] Sent chunk {i+1}/{len(chunks)}: '{fragment}'")
         
