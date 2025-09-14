@@ -23,6 +23,7 @@ def _ws_url(server: str, voice_path: Optional[str]) -> str:
     if voice_path:
         qp.append(f"voice={quote(voice_path)}")
     qp.append("format=PcmMessagePack")  # server converts to raw PCM frames
+    qp.append("max_seq_len=512")
     return f"{base}/api/tts_streaming?{'&'.join(qp)}"
 
 def _write_wav_int16(path: Path, pcm_i16: np.ndarray, sr: int) -> None:

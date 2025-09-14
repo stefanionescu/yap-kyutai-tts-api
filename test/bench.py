@@ -43,7 +43,7 @@ def _ws_url(server: str, voice_path: Optional[str]) -> str:
         qp.append(f"voice={quote(voice_path)}")
     qp.append("format=PcmMessagePack")
     # Optional: reduce KV cache to limit VRAM usage under high concurrency
-    qp.append("max_seq_len=1000")
+    qp.append("max_seq_len=512")
     return f"{base}/api/tts_streaming?{'&'.join(qp)}"
 
 
