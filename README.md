@@ -119,6 +119,17 @@ python test/warmup.py --server 127.0.0.1:8089 \
   --voice ".data/voices/ears/p004/freeform_speech_01.wav"
 ```
 
+### Quick client (local venv)
+Run the streaming client from your machine with a lightweight venv (and make sure you set all Runpod params in .env first):
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+export KYUTAI_API_KEY=<your-kyutai-api-key>
+python test/client.py
+```
+
 ### Stop and clean up
 Stops the tmux session and removes caches and downloaded artifacts; preserves your repo and Jupyter/web console.
 

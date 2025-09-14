@@ -72,13 +72,33 @@ async def _run(server: str, text: str, voice_path: Optional[str], out_path: Path
 
     async with connect(url, **ws_options) as ws:
         print(f"[debug] Connected to {url}")
-        print(f"[debug] Streaming text word-by-word: {text}")
+        print(f"[debug] Streaming text in ~8-token chunks: {text}")
         
-        # Kyutai-style streaming: send text word by word
-        words = text.split()
-        for i, word in enumerate(words):
-            await ws.send(msgpack.packb({"type": "Text", "text": word}, use_bin_type=True))
-            print(f"[debug] Sent word {i+1}/{len(words)}: '{word}'")
+        # Kyutai-style streaming: send text in ~8-token chunks with proper spacing
+        def create_chunks(text: str, target_tokens_per_chunk: int = 8) -> list[str]:
+            """Split text into chunks of approximately target_tokens_per_chunk tokens."""
+            words = text.split()
+            chunks = []
+            current_chunk = []
+            
+            for word in words:
+                current_chunk.append(word)
+                # Rough estimate: average ~1.3 tokens per word for English
+                if len(current_chunk) >= max(1, target_tokens_per_chunk // 1.3):
+                    chunks.append(" ".join(current_chunk))
+                    current_chunk = []
+            
+            if current_chunk:
+                chunks.append(" ".join(current_chunk))
+            
+            return chunks
+        
+        chunks = create_chunks(text)
+        for i, chunk in enumerate(chunks):
+            # Add leading space to every chunk except the very first
+            fragment = ((" " if i > 0 else "") + chunk)
+            await ws.send(msgpack.packb({"type": "Text", "text": fragment}, use_bin_type=True))
+            print(f"[debug] Sent chunk {i+1}/{len(chunks)}: '{fragment}'")
         
         # End-of-sentence to trigger synthesis
         await ws.send(msgpack.packb({"type": "Eos"}, use_bin_type=True))
