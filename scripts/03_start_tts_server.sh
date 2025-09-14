@@ -10,7 +10,7 @@ export HF_HOME HF_HUB_ENABLE_HF_TRANSFER
 
 # Threading and allocator caps to reduce CPU thrash and make latency predictable
 export RAYON_NUM_THREADS="${TTS_RAYON_THREADS:-1}"
-export TOKIO_WORKER_THREADS="${TTS_TOKIO_THREADS:-12}"
+export TOKIO_WORKER_THREADS="${TTS_TOKIO_THREADS:-4}"
 export MALLOC_ARENA_MAX="${MALLOC_ARENA_MAX:-2}"
 export OMP_NUM_THREADS="${OMP_NUM_THREADS:-1}"
 export MKL_NUM_THREADS="${MKL_NUM_THREADS:-1}"
@@ -82,6 +82,11 @@ PY
 export PYTHONHOME="${BASE_PREFIX}"
 export PYTHONPATH="${PY_SITE_PKGS}:${PYTHONPATH:-}"
 export PYTHONNOUSERSITE=1
+
+# Prefer TF32 for faster matmuls on Ampere+ (harmless on others)
+export NVIDIA_TF32_OVERRIDE="${NVIDIA_TF32_OVERRIDE:-1}"
+export TORCH_ALLOW_TF32_CUBLAS="${TORCH_ALLOW_TF32_CUBLAS:-1}"
+export TORCH_ALLOW_TF32_CUDNN="${TORCH_ALLOW_TF32_CUDNN:-1}"
 
 # Build local moshi-server binary from the checked-out repo to ensure we use local sources
 MOSHI_ROOT="${REPO_ROOT}/moshi"
