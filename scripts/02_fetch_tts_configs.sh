@@ -54,12 +54,13 @@ if ! grep -q "^\[modules.tts_py.py\]" "${DEST_CFG}"; then
 n_q = 16
 voice_folder = "${VOICE_FOLDER_PATTERN}"
 default_voice = "${VOICE_REL}"
-# cfg_coef and padding tuned for intelligibility
+# Low-latency defaults
 cfg_coef = 2.0
-padding_between = 1
 interleaved_text_only = 0
 initial_padding = 0
-final_padding = 2
+final_padding = 1
+padding_between = 0
+max_padding = 2
 EOF
 else
   awk -v voice_folder="${VOICE_FOLDER_PATTERN}" -v default_voice="${VOICE_REL}" '
@@ -71,10 +72,11 @@ else
       if(inblk && $1 ~ /^voice_folder/){$0="voice_folder = \"" voice_folder "\""}
       if(inblk && $1 ~ /^default_voice/){$0="default_voice = \"" default_voice "\""}
       if(inblk && $1 ~ /^cfg_coef/){$0="cfg_coef = 2.0"}
-      if(inblk && $1 ~ /^padding_between/){$0="padding_between = 1"}
+      if(inblk && $1 ~ /^padding_between/){$0="padding_between = 0"}
       if(inblk && $1 ~ /^interleaved_text_only/){$0="interleaved_text_only = 0"}
       if(inblk && $1 ~ /^initial_padding/){$0="initial_padding = 0"}
-      if(inblk && $1 ~ /^final_padding/){$0="final_padding = 2"}
+      if(inblk && $1 ~ /^final_padding/){$0="final_padding = 1"}
+      if(inblk && $1 ~ /^max_padding/){$0="max_padding = 2"}
       print
     }
   ' "${DEST_CFG}" > "${DEST_CFG}.tmp" && mv "${DEST_CFG}.tmp" "${DEST_CFG}"
