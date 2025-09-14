@@ -12,6 +12,8 @@ export HF_HOME HF_HUB_ENABLE_HF_TRANSFER
 export RAYON_NUM_THREADS="${TTS_RAYON_THREADS:-1}"
 export TOKIO_WORKER_THREADS="${TTS_TOKIO_THREADS:-12}"
 export MALLOC_ARENA_MAX="${MALLOC_ARENA_MAX:-2}"
+export OMP_NUM_THREADS="${OMP_NUM_THREADS:-1}"
+export MKL_NUM_THREADS="${MKL_NUM_THREADS:-1}"
 export RUST_LOG="${RUST_LOG:-trace,moshi_server=trace,moshi=trace,candle_core=info,hyper=warn,axum=info,tokio=info}"
 export RUST_BACKTRACE="${RUST_BACKTRACE:-full}"
 
@@ -20,6 +22,10 @@ export CUDA_DEVICE_MAX_CONNECTIONS="${CUDA_DEVICE_MAX_CONNECTIONS:-32}"
 unset CUDA_LAUNCH_BLOCKING || true
 export CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-0}"
 export CUDA_DEVICE_ORDER="${CUDA_DEVICE_ORDER:-PCI_BUS_ID}"
+
+# Optionally disable Torch Inductor to avoid Python stdlib mismatch crashes during compile_worker
+export TORCHINDUCTOR_DISABLE="${TORCHINDUCTOR_DISABLE:-1}"
+export PYTORCH_JIT="${PYTORCH_JIT:-0}"
 
 CFG="${TTS_CONFIG}"
 LOG_DIR="${TTS_LOG_DIR}"
