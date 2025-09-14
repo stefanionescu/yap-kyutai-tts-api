@@ -57,6 +57,9 @@ default_voice = "${VOICE_REL}"
 # cfg_coef and padding tuned for intelligibility
 cfg_coef = 2.0
 padding_between = 1
+interleaved_text_only = 0
+initial_padding = 0
+final_padding = 2
 EOF
 else
   awk -v voice_folder="${VOICE_FOLDER_PATTERN}" -v default_voice="${VOICE_REL}" '
@@ -67,6 +70,11 @@ else
       if(inblk && $1 ~ /^n_q/){$0="n_q = 16"}
       if(inblk && $1 ~ /^voice_folder/){$0="voice_folder = \"" voice_folder "\""}
       if(inblk && $1 ~ /^default_voice/){$0="default_voice = \"" default_voice "\""}
+      if(inblk && $1 ~ /^cfg_coef/){$0="cfg_coef = 2.0"}
+      if(inblk && $1 ~ /^padding_between/){$0="padding_between = 1"}
+      if(inblk && $1 ~ /^interleaved_text_only/){$0="interleaved_text_only = 0"}
+      if(inblk && $1 ~ /^initial_padding/){$0="initial_padding = 0"}
+      if(inblk && $1 ~ /^final_padding/){$0="final_padding = 2"}
       print
     }
   ' "${DEST_CFG}" > "${DEST_CFG}.tmp" && mv "${DEST_CFG}.tmp" "${DEST_CFG}"
