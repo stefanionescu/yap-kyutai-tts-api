@@ -10,9 +10,16 @@ export HF_HOME HF_HUB_ENABLE_HF_TRANSFER
 
 # Threading and allocator caps to reduce CPU thrash and make latency predictable
 export RAYON_NUM_THREADS="${TTS_RAYON_THREADS:-1}"
-export TOKIO_WORKER_THREADS="${TTS_TOKIO_THREADS:-4}"
+export TOKIO_WORKER_THREADS="${TTS_TOKIO_THREADS:-12}"
 export MALLOC_ARENA_MAX="${MALLOC_ARENA_MAX:-2}"
-export RUST_LOG="${RUST_LOG:-info,moshi_server=debug,moshi=info}"
+export RUST_LOG="${RUST_LOG:-trace,moshi_server=trace,moshi=trace,candle_core=info,hyper=warn,axum=info,tokio=info}"
+export RUST_BACKTRACE="${RUST_BACKTRACE:-full}"
+
+# GPU concurrency knobs: avoid stream → connection aliasing at 8 by raising to 32
+export CUDA_DEVICE_MAX_CONNECTIONS="${CUDA_DEVICE_MAX_CONNECTIONS:-32}"
+unset CUDA_LAUNCH_BLOCKING || true
+export CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-0}"
+export CUDA_DEVICE_ORDER="${CUDA_DEVICE_ORDER:-PCI_BUS_ID}"
 
 CFG="${TTS_CONFIG}"
 LOG_DIR="${TTS_LOG_DIR}"
@@ -93,11 +100,11 @@ if command -v "${TMUX_BIN}" >/dev/null 2>&1; then
   # Raise file descriptor limit for high concurrency
   ulimit -n 1048576 || true
   ${TMUX_BIN} new-session -d -s "${SESSION}" \
-    "cd '${REPO_ROOT}' && env LD_LIBRARY_PATH='${LD_LIBRARY_PATH}' PYO3_PYTHON='${PYO3_PYTHON}' RAYON_NUM_THREADS='${RAYON_NUM_THREADS}' TOKIO_WORKER_THREADS='${TOKIO_WORKER_THREADS}' MALLOC_ARENA_MAX='${MALLOC_ARENA_MAX}' RUST_LOG='${RUST_LOG}' '${MOSHI_BIN}' worker --config '${CFG}' --addr '${ADDR}' --port '${PORT}' 2>&1 | tee '${LOG_DIR}/tts-server.log'"
+    "cd '${REPO_ROOT}' && env LD_LIBRARY_PATH='${LD_LIBRARY_PATH}' PYO3_PYTHON='${PYO3_PYTHON}' RAYON_NUM_THREADS='${RAYON_NUM_THREADS}' TOKIO_WORKER_THREADS='${TOKIO_WORKER_THREADS}' MALLOC_ARENA_MAX='${MALLOC_ARENA_MAX}' RUST_LOG='${RUST_LOG}' RUST_BACKTRACE='${RUST_BACKTRACE}' CUDA_DEVICE_MAX_CONNECTIONS='${CUDA_DEVICE_MAX_CONNECTIONS}' CUDA_VISIBLE_DEVICES='${CUDA_VISIBLE_DEVICES}' CUDA_DEVICE_ORDER='${CUDA_DEVICE_ORDER}' '${MOSHI_BIN}' worker --config '${CFG}' --addr '${ADDR}' --port '${PORT}' 2>&1 | tee '${LOG_DIR}/tts-server.log'"
 else
   echo "[03-tts] tmux not found; using nohup fallback"
   ulimit -n 1048576 || true
-  nohup sh -c "cd '${REPO_ROOT}' && env LD_LIBRARY_PATH='${LD_LIBRARY_PATH}' PYO3_PYTHON='${PYO3_PYTHON}' RAYON_NUM_THREADS='${RAYON_NUM_THREADS}' TOKIO_WORKER_THREADS='${TOKIO_WORKER_THREADS}' MALLOC_ARENA_MAX='${MALLOC_ARENA_MAX}' RUST_LOG='${RUST_LOG}' '${MOSHI_BIN}' worker --config '${CFG}' --addr '${ADDR}' --port '${PORT}'" \
+  nohup sh -c "cd '${REPO_ROOT}' && env LD_LIBRARY_PATH='${LD_LIBRARY_PATH}' PYO3_PYTHON='${PYO3_PYTHON}' RAYON_NUM_THREADS='${RAYON_NUM_THREADS}' TOKIO_WORKER_THREADS='${TOKIO_WORKER_THREADS}' MALLOC_ARENA_MAX='${MALLOC_ARENA_MAX}' RUST_LOG='${RUST_LOG}' RUST_BACKTRACE='${RUST_BACKTRACE}' CUDA_DEVICE_MAX_CONNECTIONS='${CUDA_DEVICE_MAX_CONNECTIONS}' CUDA_VISIBLE_DEVICES='${CUDA_VISIBLE_DEVICES}' CUDA_DEVICE_ORDER='${CUDA_DEVICE_ORDER}' '${MOSHI_BIN}' worker --config '${CFG}' --addr '${ADDR}' --port '${PORT}'" \
     > "${LOG_DIR}/tts-server.log" 2>&1 &
 fi
 

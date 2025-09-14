@@ -75,6 +75,14 @@ tail -f .data/logs/tts-server.log
 tail -f "$TTS_LOG_DIR/tts-server.log"
 ```
 
+Print the last 100 lines from the server log:
+
+```bash
+tail -n 100 .data/logs/tts-server.log
+# or, if you customized TTS_LOG_DIR:
+tail -n 100 "$TTS_LOG_DIR/tts-server.log"
+```
+
 ### Benchmarks and warmup
 Two helper scripts generate audio to `.data/` and report useful metrics.
 
