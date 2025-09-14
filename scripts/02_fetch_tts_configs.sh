@@ -26,9 +26,8 @@ if ! grep -q "^\[modules.tts_py\]" "${DEST_CFG}"; then
 type = "Py"
 path = "/api/tts_streaming"
 batch_size = ${TTS_BATCH_SIZE:-64}
-# Pin tokenizer and BOS for 0.75B EN model
-text_tokenizer_file = "hf://kyutai/tts-0.75b-en-public/tokenizer.json"
-text_bos_token = 32000
+# Pin text tokenizer (SentencePiece) and BOS for 0.75B EN model
+text_tokenizer_file = "hf://kyutai/tts-0.75b-en-public/tokenizer_spm_8k_en_fr_audio.model"
 EOF
 else
   # Ensure batch_size and tokenization settings exist or override inside the tts_py block
@@ -40,8 +39,7 @@ else
         if(!inserted){ 
           print "batch_size = " bs
           print "# Pin tokenizer and BOS for 0.75B EN model"
-          print "text_tokenizer_file = \"hf://kyutai/tts-0.75b-en-public/tokenizer.json\""
-          print "text_bos_token = 32000"
+          print "text_tokenizer_file = \"hf://kyutai/tts-0.75b-en-public/tokenizer_spm_8k_en_fr_audio.model\""
           inserted=1 
         }
         if($0 ~ /^\[/){ inblk=0 }
