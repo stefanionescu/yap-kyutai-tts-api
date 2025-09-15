@@ -29,8 +29,8 @@ else
     ERRORS=$((ERRORS + 1))
   fi
 
-  if ! grep -q 'n_q = 32' "${TTS_CONFIG}"; then
-    echo "[06-verify] ERROR: Config should have n_q = 32 for 1.6B model"
+  if ! grep -q 'n_q = 24' "${TTS_CONFIG}"; then
+    echo "[06-verify] ERROR: Config should have n_q = 24 for 1.6B model"
     ERRORS=$((ERRORS + 1))
   fi
 

@@ -78,61 +78,54 @@ async def _run(server: str, text: str, voice_path: Optional[str], out_path: Path
     pcm_chunks: list[np.ndarray] = []
 
     async with connect(url, **ws_options) as ws:
-        # Kyutai-style streaming: send text in ~12-token chunks with proper spacing
-        def create_chunks(text: str, target_tokens_per_chunk: int = 8) -> list[str]:
-            """Split text into chunks of approximately target_tokens_per_chunk tokens."""
-            words = text.split()
-            chunks = []
-            current_chunk = []
-            
-            for word in words:
-                current_chunk.append(word)
-                # Rough estimate: average ~1.3 tokens per word for English
-                if len(current_chunk) >= max(1, target_tokens_per_chunk // 1.3):
-                    chunks.append(" ".join(current_chunk))
-                    current_chunk = []
-            
-            if current_chunk:
-                chunks.append(" ".join(current_chunk))
-            
-            return chunks
-        
-        # No primer space frame - padding config in server handles clean onset
-        
-        chunks = create_chunks(text)
-        # IMPORTANT: do NOT merge the first two chunks; we want the smallest possible first prefill
-        
-        t0_server: Optional[float] = None
-        for i, chunk in enumerate(chunks):
-            # Add leading space to subsequent chunks only (not the first)
-            fragment = ((" " + chunk) if i > 0 else chunk)
-            await ws.send(msgpack.packb({"type": "Text", "text": fragment}, use_bin_type=True))
-            # Start server TTFB timing when we send the FIRST text chunk
-            if t0_server is None:
-                t0_server = time.perf_counter()
-        
-        # End-of-sentence to trigger synthesis
-        await ws.send(msgpack.packb({"type": "Eos"}, use_bin_type=True))
+        # True full-duplex: concurrent reader/sender for optimal TTFB
+        t0_server_holder = {"t0": None}
 
-        async for raw in ws:
-            if not isinstance(raw, (bytes, bytearray)):
-                continue
-            msg = msgpack.unpackb(raw, raw=False)
+        async def reader():
+            nonlocal sample_rate, time_to_first_audio_e2e, time_to_first_audio_server
+            try:
+                while True:
+                    raw = await ws.recv()
+                    if not isinstance(raw, (bytes, bytearray)):
+                        continue
+                    msg = msgpack.unpackb(raw, raw=False)
 
-            mtype = msg.get("type")
-            if mtype in ("Audio", "Pcm", "AudioPcm", "AudioChunk", "AudioF32", "AudioI16"):
-                pcm_i16, sr = _extract_pcm(msg)
-                if pcm_i16.size > 0:
-                    if time_to_first_audio_e2e is None:
-                        time_to_first_audio_e2e = time.perf_counter() - t0_e2e
-                    if time_to_first_audio_server is None and t0_server is not None:
-                        time_to_first_audio_server = time.perf_counter() - t0_server
-                    sample_rate = sr
-                    pcm_chunks.append(pcm_i16)
-            elif mtype in ("End", "Final", "Done", "Marker"):
-                break
-            elif mtype in ("Error",):
-                raise RuntimeError(f"server error: {msg}")
+                    mtype = msg.get("type")
+                    if mtype in ("Audio", "Pcm", "AudioPcm", "AudioChunk", "AudioF32", "AudioI16"):
+                        pcm_i16, sr = _extract_pcm(msg)
+                        if pcm_i16.size > 0:
+                            if time_to_first_audio_e2e is None:
+                                time_to_first_audio_e2e = time.perf_counter() - t0_e2e
+                            if time_to_first_audio_server is None and t0_server_holder["t0"] is not None:
+                                time_to_first_audio_server = time.perf_counter() - t0_server_holder["t0"]
+                            sample_rate = sr
+                            pcm_chunks.append(pcm_i16)
+                    elif mtype in ("End", "Final", "Done", "Marker"):
+                        break
+                    elif mtype in ("Error",):
+                        raise RuntimeError(f"server error: {msg}")
+            except (asyncio.CancelledError, Exception):
+                # Connection closed or task cancelled, exit gracefully
+                pass
+
+        async def sender():
+            try:
+                words = text.split()
+                for i, word in enumerate(words):
+                    fragment = word if i == 0 else (" " + word)
+                    await ws.send(msgpack.packb({"type": "Text", "text": fragment}, use_bin_type=True))
+                    if t0_server_holder["t0"] is None:
+                        t0_server_holder["t0"] = time.perf_counter()
+                    # tiny yield to let reader run
+                    await asyncio.sleep(0)
+                # End-of-sentence to trigger synthesis
+                await ws.send(msgpack.packb({"type": "Eos"}, use_bin_type=True))
+            except (asyncio.CancelledError, Exception):
+                # Connection closed or task cancelled, exit gracefully
+                pass
+
+        # run both concurrently, handle exceptions gracefully
+        await asyncio.gather(reader(), sender(), return_exceptions=True)
 
     wall = time.perf_counter() - t0_e2e
 

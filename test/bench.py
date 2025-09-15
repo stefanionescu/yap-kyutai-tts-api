@@ -111,71 +111,61 @@ async def _tts_one(
     prefix_samples_to_drop = 0
 
     async with connect(url, **ws_options) as ws:  # type: ignore
-        # Kyutai-style streaming: send text in ~12-token chunks with proper spacing, then Eos to trigger synthesis
-        def create_chunks(text: str, target_tokens_per_chunk: int = 8) -> List[str]:
-            """Split text into chunks of approximately target_tokens_per_chunk tokens."""
-            words = text.split()
-            chunks = []
-            current_chunk = []
-            
-            for word in words:
-                current_chunk.append(word)
-                # Rough estimate: average ~1.3 tokens per word for English
-                if len(current_chunk) >= max(1, target_tokens_per_chunk // 1.3):
-                    chunks.append(" ".join(current_chunk))
-                    current_chunk = []
-            
-            if current_chunk:
-                chunks.append(" ".join(current_chunk))
-            
-            return chunks
-        
-        # No primer space frame - padding config in server handles clean onset
-        
-        chunks = create_chunks(text)
-        # IMPORTANT: do NOT merge the first two chunks; we want the smallest possible first prefill
-        
-        t0_server: Optional[float] = None
-        for i, chunk in enumerate(chunks):
-            # Add leading space to subsequent chunks only (not the first)
-            fragment = ((" " + chunk) if i > 0 else chunk)
-            await ws.send(msgpack.packb({"type": "Text", "text": fragment}, use_bin_type=True))
-            # Start server TTFB timing when we send the FIRST text chunk
-            if t0_server is None:
-                t0_server = time.perf_counter()
-        await ws.send(msgpack.packb({"type": "Eos"}, use_bin_type=True))
+        # True full-duplex: concurrent reader/sender for optimal TTFB
+        metrics = {"ttfb_e2e_s": None, "ttfb_server_s": None}
+        t0_server_holder = {"t0": None}
 
-        async for raw in ws:  # server sends binary msgpack frames
-            if not isinstance(raw, (bytes, bytearray)):
-                continue
-            data = msgpack.unpackb(raw, raw=False)
-            kind = data.get("type")
+        async def reader():
+            nonlocal sample_rate, time_to_first_audio_e2e, time_to_first_audio_server, prefix_samples_to_drop
+            try:
+                while True:
+                    raw = await ws.recv()
+                    if not isinstance(raw, (bytes, bytearray)):
+                        continue
+                    data = msgpack.unpackb(raw, raw=False)
+                    kind = data.get("type")
 
-            if kind in ("Audio", "Pcm", "AudioPcm", "AudioChunk", "AudioF32", "AudioI16"):
-                pcm_i16, sr = _extract_pcm(data)
-                if pcm_i16.size > 0:
-                    # No prefix trimming for 1.6B embeddings
-                    if prefix_samples_to_drop > 0:
-                        if pcm_i16.size <= prefix_samples_to_drop:
-                            prefix_samples_to_drop -= pcm_i16.size
-                            continue
-                        pcm_i16 = pcm_i16[prefix_samples_to_drop:]
-                        prefix_samples_to_drop = 0
-                    if time_to_first_audio_e2e is None:
-                        time_to_first_audio_e2e = time.perf_counter() - t0_e2e
-                    if time_to_first_audio_server is None and t0_server is not None:
-                        time_to_first_audio_server = time.perf_counter() - t0_server
-                    sample_rate = sr
-                    pcm_chunks.append(pcm_i16)
+                    if kind in ("Audio", "Pcm", "AudioPcm", "AudioChunk", "AudioF32", "AudioI16"):
+                        pcm_i16, sr = _extract_pcm(data)
+                        if pcm_i16.size > 0:
+                            # No prefix trimming for 1.6B embeddings
+                            if prefix_samples_to_drop > 0:
+                                if pcm_i16.size <= prefix_samples_to_drop:
+                                    prefix_samples_to_drop -= pcm_i16.size
+                                    continue
+                                pcm_i16 = pcm_i16[prefix_samples_to_drop:]
+                                prefix_samples_to_drop = 0
+                            if time_to_first_audio_e2e is None:
+                                time_to_first_audio_e2e = time.perf_counter() - t0_e2e
+                            if time_to_first_audio_server is None and t0_server_holder["t0"] is not None:
+                                time_to_first_audio_server = time.perf_counter() - t0_server_holder["t0"]
+                            sample_rate = sr
+                            pcm_chunks.append(pcm_i16)
+                    elif kind in ("End", "Final", "Done", "Marker"):
+                        break
+                    elif kind == "Error":
+                        raise RuntimeError(f"Server error: {data}")
+            except (asyncio.CancelledError, Exception):
+                # Connection closed or task cancelled, exit gracefully
+                pass
 
-            elif kind in ("End", "Final", "Done", "Marker"):
-                # End of stream
-                break
-            elif kind == "Error":
-                raise RuntimeError(f"Server error: {data}")
-            else:
-                # Ignore other server messages
-                continue
+        async def sender():
+            try:
+                words = text.split()
+                for i, word in enumerate(words):
+                    fragment = word if i == 0 else (" " + word)
+                    await ws.send(msgpack.packb({"type": "Text", "text": fragment}, use_bin_type=True))
+                    if t0_server_holder["t0"] is None:
+                        t0_server_holder["t0"] = time.perf_counter()
+                    # tiny yield to let reader run
+                    await asyncio.sleep(0)
+                await ws.send(msgpack.packb({"type": "Eos"}, use_bin_type=True))
+            except (asyncio.CancelledError, Exception):
+                # Connection closed or task cancelled, exit gracefully
+                pass
+
+        # run both concurrently, handle exceptions gracefully
+        await asyncio.gather(reader(), sender(), return_exceptions=True)
 
     wall_s = time.perf_counter() - t0_e2e
 
