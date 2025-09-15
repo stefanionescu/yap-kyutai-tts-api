@@ -31,8 +31,11 @@ AUDIO_DIR.mkdir(parents=True, exist_ok=True)
 # Load environment variables from .env file
 load_dotenv(ROOT_DIR / ".env")
 
+# Add near top:
+VOICES_DIR = Path(os.getenv("VOICES_DIR", ROOT_DIR / ".data" / "voices"))
+
 DEFAULT_TEXT = (
-    "Hey dude! It's an honor to meet you!"
+    "I kinda wanna go to the beach"
 )
 
 
@@ -55,9 +58,9 @@ def _ws_url(server: str, voice_path: Optional[str]) -> str:
         "seed=42",
     ]
     # Temporarily comment out voice parameter for debugging
-    # if voice_path:
-    #     from urllib.parse import quote
-    #     qp.append(f"voice={quote(voice_path)}")
+    if voice_path:
+        from urllib.parse import quote
+        qp.append(f"voice={quote(voice_path)}")
     return f"{base}/api/tts_streaming?{'&'.join(qp)}"
 
 
@@ -86,7 +89,7 @@ def parse_args() -> argparse.Namespace:
     )
     ap.add_argument(
         "--voice",
-        default=os.getenv("YAP_TTS_VOICE", "ears/p004/freeform_speech_01.wav.1e68beda@240.safetensors"),
+        default=os.getenv("YAP_TTS_VOICE", "ears/p004/freeform_speech_01.wav"),
         help="Voice path available on server (relative to voices dir)",
     )
     ap.add_argument(
@@ -153,6 +156,25 @@ async def tts_client(
         "close_timeout": 0.5,
     }
 
+    # Calculate prefix samples to drop from voice WAV file
+    prefix_samples_to_drop = 0
+    if voice and voice.endswith(".wav"):
+        vpath = (VOICES_DIR / voice) if not voice.startswith("/") else Path(voice)
+        try:
+            import wave
+            with wave.open(str(vpath), "rb") as wf:
+                sr = wf.getframerate() or 24000
+                frames = wf.getnframes()
+                # Use server's actual output sr if it differs, we'll correct later:
+                prefix_samples_to_drop = int(frames * (24000.0 / sr))
+        except Exception:
+            pass  # fallback: keep your current 300ms heuristic
+            
+    # Heuristic fallback: trim 300 ms if we can't learn the exact prefix
+    DEFAULT_TRIM_MS = 300
+    if prefix_samples_to_drop == 0:
+        prefix_samples_to_drop = int(24000 * (DEFAULT_TRIM_MS / 1000.0))
+
     # Metrics
     connect_start = time.perf_counter()
     t0 = connect_start
@@ -162,9 +184,6 @@ async def tts_client(
 
     pcm_chunks: List[np.ndarray] = []
     sample_rate = 24000
-    prefix_samples_to_drop = 0
-    # Heuristic fallback: trim 300 ms if we can't learn the exact prefix
-    DEFAULT_TRIM_MS = 300
 
     async with connect(url, **ws_options) as ws:  # type: ignore
         connect_ms = (time.perf_counter() - connect_start) * 1000.0
@@ -176,26 +195,24 @@ async def tts_client(
             raw = await asyncio.wait_for(ws.recv(), timeout=0.3)
             handshake_ms = (time.perf_counter() - hs_start) * 1000.0
             # Some servers send a metadata/ready frame first – try to extract a prefix hint
+            # But we prefer our calculated prefix from the voice file
             if isinstance(raw, (bytes, bytearray)):
                 try:
                     meta = msgpack.unpackb(raw, raw=False)
                     pf = meta.get("prefix_samples") or meta.get("prefix_ms")
-                    if isinstance(pf, int):
-                        prefix_samples_to_drop = max(0, pf)
-                    elif isinstance(pf, float):
-                        prefix_samples_to_drop = int(sample_rate * (pf / 1000.0))
-                    else:
-                        prefix_samples_to_drop = int(sample_rate * (DEFAULT_TRIM_MS / 1000.0))
+                    # Only use server metadata if we couldn't calculate from voice file
+                    if prefix_samples_to_drop == int(24000 * (DEFAULT_TRIM_MS / 1000.0)):
+                        if isinstance(pf, int):
+                            prefix_samples_to_drop = max(0, pf)
+                        elif isinstance(pf, float):
+                            prefix_samples_to_drop = int(sample_rate * (pf / 1000.0))
                 except:
-                    # If metadata parsing fails, use default trim
-                    prefix_samples_to_drop = int(sample_rate * (DEFAULT_TRIM_MS / 1000.0))
-            else:
-                prefix_samples_to_drop = int(sample_rate * (DEFAULT_TRIM_MS / 1000.0))
+                    # If metadata parsing fails, keep our calculated prefix
+                    pass
             first_frame = raw if isinstance(raw, (bytes, bytearray)) else None
         except asyncio.TimeoutError:
             handshake_ms = 0.0
             first_frame = None
-            prefix_samples_to_drop = int(sample_rate * (DEFAULT_TRIM_MS / 1000.0))
 
         # Send text in ~12-token chunks with proper spacing, then Eos
         def create_chunks(text: str, target_tokens_per_chunk: int = 12) -> List[str]:
@@ -260,9 +277,8 @@ async def tts_client(
                         if pcm_i16.size <= prefix_samples_to_drop:
                             prefix_samples_to_drop -= pcm_i16.size
                             return False
-                        else:
-                            pcm_i16 = pcm_i16[prefix_samples_to_drop:]
-                            prefix_samples_to_drop = 0
+                        pcm_i16 = pcm_i16[prefix_samples_to_drop:]
+                        prefix_samples_to_drop = 0
                     if first_audio_time is None:
                         first_audio_time = time.perf_counter() - t0
                     pcm_chunks.append(pcm_i16)

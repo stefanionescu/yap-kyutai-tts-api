@@ -15,13 +15,13 @@ DSM_REPO_DIR=${DSM_REPO_DIR:-${ROOT_DIR}/.data/delayed-streams-modeling}
 
 # Voice assets
 VOICES_DIR=${VOICES_DIR:-${ROOT_DIR}/.data/voices}
-# Default to specific embedding, but allow auto-discovery if file doesn't exist
-TTS_VOICE_DEFAULT="ears/p004/freeform_speech_01.wav.1e68beda@240.safetensors"
+# Use WAV file for 0.75B prefix-cloning model (not safetensors)
+TTS_VOICE_DEFAULT="ears/p004/freeform_speech_01.wav"
 TTS_VOICE=${TTS_VOICE:-$TTS_VOICE_DEFAULT}
 
-# Auto-detect p004 @240 embedding if default doesn't exist (HF may rehash files)
+# Auto-detect p004 WAV file if default doesn't exist
 if [ ! -f "${VOICES_DIR}/${TTS_VOICE}" ] && [ "${TTS_VOICE}" = "${TTS_VOICE_DEFAULT}" ]; then
-    AUTO_VOICE=$(find "${VOICES_DIR}/ears/p004" -maxdepth 1 -name "*@240.safetensors" -type f | head -n1 | sed "s|${VOICES_DIR}/||" 2>/dev/null || echo "")
+    AUTO_VOICE=$(find "${VOICES_DIR}/ears/p004" -maxdepth 1 -name "*.wav" -type f | head -n1 | sed "s|${VOICES_DIR}/||" 2>/dev/null || echo "")
     if [ -n "${AUTO_VOICE}" ]; then
         echo "[env] Auto-detected p004 voice: ${AUTO_VOICE} (original ${TTS_VOICE_DEFAULT} not found)" >&2
         TTS_VOICE="${AUTO_VOICE}"
