@@ -80,7 +80,7 @@ text_bos_token = 1
 hf_repo = "${TTS_HF_REPO}"
 log_folder = "\$HOME/tmp/moshi-server-logs"
 # CFG distillation => no explicit CFG pass at inference
-n_q = 32
+n_q = 16
 voice_folder = "${VOICE_FOLDER_PATTERN}"
 default_voice = "${VOICE_REL_BASE}"
 EOF
