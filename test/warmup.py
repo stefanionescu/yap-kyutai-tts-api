@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Warmup script with WebSocket connection reuse and word-by-word sending.
+Warmup script with word-by-word sending and per-request connections.
 
-This demonstrates proper TTFB measurement by reusing WebSocket connections
-while sending text word-by-word like the other test clients.
+This demonstrates TTFB measurement with sequential requests using fresh connections
+(since server closes WebSocket after each TTS request).
 """
 from __future__ import annotations
 
@@ -48,8 +48,8 @@ async def warmup_with_reuse(
     api_key: Optional[str] = None,
 ) -> None:
     """
-    Demonstrates WebSocket connection reuse with word-by-word sending.
-    This eliminates connection overhead while matching test client behavior.
+    Sequential warmup requests with word-by-word sending.
+    Each request uses a fresh WebSocket connection (server closes after each TTS).
     """
     url = _ws_url(server, voice_path)
     headers = {"kyutai-api-key": api_key} if api_key else {}
@@ -66,12 +66,13 @@ async def warmup_with_reuse(
     }
 
     print(f"Connecting to {url}")
-    print(f"Warming up with {len(texts)} requests using connection reuse...")
+    print(f"Warming up with {len(texts)} sequential requests...")
     
-    async with connect(url, **ws_options) as ws:  # type: ignore
-        for i, text in enumerate(texts):
-            print(f"\nRequest {i+1}/{len(texts)}: '{text[:50]}{'...' if len(text) > 50 else ''}'")
-            
+    for i, text in enumerate(texts):
+        print(f"\nRequest {i+1}/{len(texts)}: '{text[:50]}{'...' if len(text) > 50 else ''}'")
+        
+        # Create NEW connection for each request (server doesn't support connection reuse)
+        async with connect(url, **ws_options) as ws:  # type: ignore
             # Metrics for this request only
             t0_request = time.perf_counter()
             ttfb_request: Optional[float] = None

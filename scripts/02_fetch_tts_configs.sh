@@ -78,7 +78,7 @@ text_bos_token = 1
 [modules.tts_py]
 type = "Py"
 path = "/api/tts_streaming"
-batch_size = ${BS_VAL}  # Reduced from 32 to 16 for better TTFB with acceptable throughput
+batch_size = ${BS_VAL}
 text_tokenizer_file = "${TEXT_SPM}"
 text_bos_token = 1
 
@@ -91,11 +91,11 @@ n_q = 32
 voice_folder = "${VOICE_FOLDER_PATTERN}"
 default_voice = "${VOICE_REL_BASE}"
 
-interleaved_text_only = 0
+interleaved_text_only = 2
 # Balanced padding for natural speech rhythm without sacrificing too much latency
 initial_padding = 6
-final_padding = 12
-max_padding = 18
+final_padding = 6
+max_padding = 12
 # keep padding_between at default unless you're chasing artifacts
 
 temp = 0.2
