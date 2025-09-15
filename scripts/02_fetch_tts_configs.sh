@@ -121,13 +121,18 @@ fi
 # Download the entire voices repository once (all datasets) and reuse thereafter
 VOICES_DIR="${VOICES_DIR:-${ROOT_DIR}/.data/voices}"
 mkdir -p "${VOICES_DIR}"
-if find "${VOICES_DIR}" -type f \( -name '*.safetensors' -o -name '*.wav' \) | head -n 1 >/dev/null; then
-  echo "[02-tts] Voices already present in ${VOICES_DIR} (skip download)"
+
+# Check if voices actually exist (not just empty directory)
+VOICE_COUNT=$(find "${VOICES_DIR}" -type f \( -name '*.safetensors' -o -name '*.wav' \) | wc -l)
+if [ "$VOICE_COUNT" -gt 0 ]; then
+  echo "[02-tts] Voices already present in ${VOICES_DIR} ($VOICE_COUNT files, skip download)"
 else
   echo "[02-tts] Downloading ALL voices to ${VOICES_DIR} (kyutai/tts-voices)"
+  export VOICES_DIR
   "${ROOT_DIR}/.venv/bin/python" - <<'PY'
 import os, sys
 dst = os.environ.get('VOICES_DIR')
+print(f'Downloading to: {dst}')
 try:
     from huggingface_hub import snapshot_download
     snapshot_download('kyutai/tts-voices', local_dir=dst, local_dir_use_symlinks=False, resume_download=True)
@@ -136,4 +141,5 @@ except Exception as e:
     print(f'[02-tts] ERROR downloading voices: {e}')
     sys.exit(1)
 PY
+  echo "[02-tts] Voices download completed"
 fi
