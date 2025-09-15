@@ -21,7 +21,7 @@ else
   # Check voice settings in config
   echo ""
   echo "=== Current config voice settings ==="
-  grep -A5 -B5 "voice_folder\|default_voice\|n_q\|hf_repo\|cfg_is_no_text\|padding_between\|batch_size\|cfg_coef\|log_folder" "${TTS_CONFIG}" || true
+  grep -A3 -B3 "voice_folder\|default_voice\|n_q\|hf_repo\|batch_size\|text_tokenizer_file\|log_folder" "${TTS_CONFIG}" || true
   
   # Validate specific settings for 1.6B
   if grep -q 'voice_folder.*hf-snapshot' "${TTS_CONFIG}"; then
@@ -29,28 +29,19 @@ else
     ERRORS=$((ERRORS + 1))
   fi
 
-  if ! grep -q 'n_q = 24' "${TTS_CONFIG}"; then
-    echo "[06-verify] ERROR: Config should have n_q = 24 for 1.6B model"
+  if ! grep -q 'n_q = 32' "${TTS_CONFIG}"; then
+    echo "[06-verify] ERROR: Config should have n_q = 32 (training baseline) for 1.6B model"
     ERRORS=$((ERRORS + 1))
   fi
 
-  if ! grep -q 'cfg_is_no_text = true' "${TTS_CONFIG}"; then
-    echo "[06-verify] ERROR: Config should have cfg_is_no_text = true"
+  # CFG settings should NOT be present (1.6B is CFG-distilled)
+  if grep -q 'cfg_is_no_text\|cfg_coef\|padding_between' "${TTS_CONFIG}"; then
+    echo "[06-verify] ERROR: Config should NOT have CFG settings (1.6B is CFG-distilled)"
     ERRORS=$((ERRORS + 1))
   fi
 
-  if ! grep -q 'padding_between = 1' "${TTS_CONFIG}"; then
-    echo "[06-verify] ERROR: Config should have padding_between = 1"
-    ERRORS=$((ERRORS + 1))
-  fi
-
-  if ! grep -q 'batch_size = 8' "${TTS_CONFIG}"; then
-    echo "[06-verify] ERROR: Config should have batch_size = 8"
-    ERRORS=$((ERRORS + 1))
-  fi
-
-  if ! grep -q 'cfg_coef = 2.0' "${TTS_CONFIG}"; then
-    echo "[06-verify] ERROR: Config should have cfg_coef = 2.0"
+  if ! grep -q 'batch_size = 32' "${TTS_CONFIG}"; then
+    echo "[06-verify] ERROR: Config should have batch_size = 32 (optimal for L40S)"
     ERRORS=$((ERRORS + 1))
   fi
 
@@ -66,6 +57,12 @@ else
 
   if ! grep -q 'hf_repo.*tts-1.6b-en_fr' "${TTS_CONFIG}"; then
     echo "[06-verify] ERROR: Config should have hf_repo = kyutai/tts-1.6b-en_fr"
+    ERRORS=$((ERRORS + 1))
+  fi
+
+  # Check tokenizer is using local path, not hf://
+  if grep -q 'text_tokenizer_file.*hf://' "${TTS_CONFIG}"; then
+    echo "[06-verify] ERROR: Config should use local tokenizer path, not hf://"
     ERRORS=$((ERRORS + 1))
   fi
 fi
