@@ -39,7 +39,8 @@ def _write_wav_int16(path: Path, pcm_i16: np.ndarray, sr: int) -> None:
 
 def _extract_pcm(msg: dict) -> tuple[np.ndarray, int]:
     """Return (int16 mono samples, sample_rate) or (empty, sr). Accept multiple shapes."""
-    sr = msg.get("sample_rate") or msg.get("sr") or 24000
+    # Moshi/Mimi always operates at 24 kHz - force this regardless of server claims
+    sr = 24000
     # candidate fields in order of likelihood
     candidates: Iterable[str] = ("pcm", "data", "pcm_i16", "pcm_f32", "samples")
     for k in candidates:

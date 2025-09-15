@@ -35,7 +35,8 @@ else
   fi
 
   # CFG settings should NOT be present (1.6B is CFG-distilled)
-  if grep -q 'cfg_is_no_text\|cfg_coef\|padding_between' "${TTS_CONFIG}"; then
+  # Look for actual config lines, not comments (handle TOML indentation)
+  if grep -E '^[[:space:]]*cfg_is_no_text[[:space:]]*=|^[[:space:]]*cfg_coef[[:space:]]*=|^[[:space:]]*padding_between[[:space:]]*=' "${TTS_CONFIG}"; then
     echo "[06-verify] ERROR: Config should NOT have CFG settings (1.6B is CFG-distilled)"
     ERRORS=$((ERRORS + 1))
   fi

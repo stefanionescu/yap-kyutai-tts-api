@@ -211,8 +211,8 @@ async def tts_client(
             data = msgpack.unpackb(raw, raw=False)
             kind = data.get("type")
             if kind in ("Audio", "Pcm", "AudioPcm", "AudioChunk", "AudioF32", "AudioI16"):
-                sr = data.get("sample_rate") or data.get("sr") or 24000
-                sample_rate = sr
+                # Moshi/Mimi always operates at 24 kHz - force this regardless of server claims
+                sample_rate = 24000
                 arr = None
                 for k in ("pcm", "data", "pcm_i16", "pcm_f32", "samples"):
                     if k in data and data[k] is not None:
