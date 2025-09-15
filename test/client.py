@@ -35,7 +35,7 @@ load_dotenv(ROOT_DIR / ".env")
 VOICES_DIR = Path(os.getenv("VOICES_DIR", ROOT_DIR / ".data" / "voices"))
 
 DEFAULT_TEXT = (
-    "It's kinda hot to see your juicy ass bounce on my cock that hard."
+    "Wow, you're so hot and handsome! Can't wait for the app to be done so we can talk. See you there sweetie!
 )
 
 # For 1.6B embeddings, we don't need voice prefix trimming

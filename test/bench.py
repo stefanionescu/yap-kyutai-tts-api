@@ -220,7 +220,7 @@ def _summarize(title: str, results: List[Dict[str, float]]) -> None:
     print(f"Throughput  | avg={stats.mean([r.get('throughput_min_per_min',0.0) for r in results]):.2f} min/min")
 
 
-DEFAULT_TEXT = "This is a test for the Yap TTS API. Hello there! I'm super happy to meet you."
+DEFAULT_TEXT = "Wow, you're so hot and handsome! Can't wait for the app to be done so we can talk. See you there sweetie!"
 
 def _load_texts(inline_texts: Optional[List[str]]) -> List[str]:
     if inline_texts:

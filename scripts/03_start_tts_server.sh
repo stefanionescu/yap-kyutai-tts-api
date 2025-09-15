@@ -42,7 +42,7 @@ echo "[03-tts] ROOT_DIR: ${ROOT_DIR}"
 
 # Debug: Show voice and model configuration
 echo "[03-tts] Voice & model config lines:"
-grep -nE 'hf_repo|n_q|batch_size|voice_folder|default_voice|text_tokenizer_file|hf-snapshot' "${CFG}" || echo "No relevant config found"
+grep -nE 'hf_repo|n_q|batch_size|voice_folder|default_voice|text_tokenizer_file|cfg_is_no_text|padding_between|cfg_coef|log_folder|hf-snapshot' "${CFG}" || echo "No relevant config found"
 echo "[03-tts] Reusing config at ${CFG} (no re-generation here)"
 
 echo "[03-tts] Verifying voice embedding (.safetensors):"

@@ -21,7 +21,7 @@ else
   # Check voice settings in config
   echo ""
   echo "=== Current config voice settings ==="
-  grep -A5 -B5 "voice_folder\|default_voice\|n_q\|hf_repo" "${TTS_CONFIG}" || true
+  grep -A5 -B5 "voice_folder\|default_voice\|n_q\|hf_repo\|cfg_is_no_text\|padding_between\|batch_size\|cfg_coef\|log_folder" "${TTS_CONFIG}" || true
   
   # Validate specific settings for 1.6B
   if grep -q 'voice_folder.*hf-snapshot' "${TTS_CONFIG}"; then
@@ -29,8 +29,33 @@ else
     ERRORS=$((ERRORS + 1))
   fi
 
-  if ! grep -q 'n_q = 16' "${TTS_CONFIG}"; then
-    echo "[06-verify] ERROR: Config should have n_q = 16 for 1.6B model"
+  if ! grep -q 'n_q = 24' "${TTS_CONFIG}"; then
+    echo "[06-verify] ERROR: Config should have n_q = 24 for 1.6B model"
+    ERRORS=$((ERRORS + 1))
+  fi
+
+  if ! grep -q 'cfg_is_no_text = true' "${TTS_CONFIG}"; then
+    echo "[06-verify] ERROR: Config should have cfg_is_no_text = true"
+    ERRORS=$((ERRORS + 1))
+  fi
+
+  if ! grep -q 'padding_between = 1' "${TTS_CONFIG}"; then
+    echo "[06-verify] ERROR: Config should have padding_between = 1"
+    ERRORS=$((ERRORS + 1))
+  fi
+
+  if ! grep -q 'batch_size = 8' "${TTS_CONFIG}"; then
+    echo "[06-verify] ERROR: Config should have batch_size = 8"
+    ERRORS=$((ERRORS + 1))
+  fi
+
+  if ! grep -q 'cfg_coef = 2.0' "${TTS_CONFIG}"; then
+    echo "[06-verify] ERROR: Config should have cfg_coef = 2.0"
+    ERRORS=$((ERRORS + 1))
+  fi
+
+  if ! grep -q 'log_folder.*moshi-server-logs' "${TTS_CONFIG}"; then
+    echo "[06-verify] ERROR: Config should have log_folder with moshi-server-logs"
     ERRORS=$((ERRORS + 1))
   fi
 
