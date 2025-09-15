@@ -17,11 +17,9 @@ fi
 
 mkdir -p "$(dirname "${DEST_CFG}")"
 
-# Portable in-place sed (macOS/BSD and GNU)
-TEXT_SPM="hf://kyutai/tts-0.75b-en-public/tokenizer_spm_8k_en_fr_audio.model"
-# Use WAV file for 0.75B model, not safetensors
-VOICE_REL="${TTS_VOICE:-ears/p004/freeform_speech_01.wav}"
-# Voice folder should be the root of voices directory for proper path resolution
+# 1.6B tokenizer + embedding voice
+TEXT_SPM="hf://kyutai/tts-1.6b-en_fr/tokenizer_spm_8k_en_fr_audio.model"
+VOICE_REL="${TTS_VOICE:-ears/p004/freeform_speech_01.wav.@240.safetensors}"
 VOICE_FOLDER_PATTERN="${VOICES_DIR}"
 BS_VAL="${TTS_BATCH_SIZE:-32}"
 
@@ -32,7 +30,7 @@ log_dir = "\$HOME/tmp/tts-logs"
 instance_name = "tts"
 authorized_ids = ["public_token"]
 
-# --- Text tokenizer (Kyutai TTS 0.75B EN) ---
+# --- Text tokenizer (Kyutai TTS 1.6B EN/FR) ---
 text_tokenizer_file = "${TEXT_SPM}"
 text_bos_token = 1
 
@@ -44,22 +42,21 @@ text_tokenizer_file = "${TEXT_SPM}"
 text_bos_token = 1
 
 [modules.tts_py.py]
-# Python module overrides for tts.py
-hf_repo = "kyutai/tts-0.75b-en-public"
-n_q = 16                           # 0.75B default
-voice_folder = "${VOICE_FOLDER_PATTERN}"  # root of voices directory
-default_voice = "${VOICE_REL}"          # WAV file for 0.75B prefix cloning
-# Quality & onset hygiene - prevents initial pop/garble
+# Python module overrides for tts.py (1.6B with **embeddings**)
+hf_repo = "kyutai/tts-1.6b-en_fr"
+voice_folder = "${VOICE_FOLDER_PATTERN}"
+default_voice = "${VOICE_REL}"   # must be a **.safetensors** embedding
+
+# Light onset padding is fine; 1.6B doesn't need audio prefix trimming
 interleaved_text_only = 0
-initial_padding = 4
+initial_padding = 2
 final_padding = 2
 max_padding = 4
-padding_between = 1
-padding_bonus = 0.5
-# Deterministic sampling parameters for consistent voice generation
-temp = 0.2                         # small but non-zero → natural prosody
-cfg_coef = 2.0
+
+# Decoding knobs (1.6B: **no CFG**); keep temp/seed for reproducibility
+temp = 0.2
 seed = 42
+# cfg_coef is ignored by 1.6B (no CFG)
 EOF
 
 echo "[02-tts] Wrote ${DEST_CFG}"
