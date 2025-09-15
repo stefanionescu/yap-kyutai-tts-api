@@ -1,0 +1,110 @@
+#!/usr/bin/env bash
+set -euo pipefail
+source "$(dirname "$0")/env.sh"
+
+echo "[06-verify] Verifying TTS configuration and voice setup"
+echo "[06-verify] ROOT_DIR: ${ROOT_DIR}"
+echo "[06-verify] VOICES_DIR: ${VOICES_DIR}"
+echo "[06-verify] TTS_CONFIG: ${TTS_CONFIG}"
+
+ERRORS=0
+
+# 1) Check config file exists and has correct voice settings
+echo ""
+echo "=== Config file verification ==="
+if [ ! -f "${TTS_CONFIG}" ]; then
+  echo "[06-verify] ERROR: Config file missing: ${TTS_CONFIG}"
+  ERRORS=$((ERRORS + 1))
+else
+  echo "[06-verify] Config file exists: ${TTS_CONFIG}"
+  
+  # Check voice settings in config
+  echo ""
+  echo "=== Current config voice settings ==="
+  grep -A5 -B5 "voice_folder\|default_voice\|n_q\|hf_repo" "${TTS_CONFIG}" || true
+  
+  # Validate specific settings
+  if grep -q 'voice_folder.*hf-snapshot' "${TTS_CONFIG}"; then
+    echo "[06-verify] ERROR: Config still uses HF snapshot, should use local path"
+    ERRORS=$((ERRORS + 1))
+  fi
+  
+  if ! grep -q 'n_q = 16' "${TTS_CONFIG}"; then
+    echo "[06-verify] ERROR: Config should have n_q = 16 for 0.75B model"
+    ERRORS=$((ERRORS + 1))
+  fi
+  
+  if ! grep -q 'default_voice.*ears/p004' "${TTS_CONFIG}"; then
+    echo "[06-verify] ERROR: Config should have default_voice = ears/p004/..."
+    ERRORS=$((ERRORS + 1))
+  fi
+  
+  if ! grep -q 'hf_repo.*0.75b-en-public' "${TTS_CONFIG}"; then
+    echo "[06-verify] ERROR: Config should have hf_repo = kyutai/tts-0.75b-en-public"
+    ERRORS=$((ERRORS + 1))
+  fi
+fi
+
+# 2) Check if voices directory exists and has content
+echo ""
+echo "=== Voices directory verification ==="
+if [ ! -d "${VOICES_DIR}" ]; then
+  echo "[06-verify] ERROR: Voices directory missing: ${VOICES_DIR}"
+  ERRORS=$((ERRORS + 1))
+else
+  VOICE_COUNT=$(find "${VOICES_DIR}" -type f \( -name '*.safetensors' -o -name '*.wav' \) | wc -l)
+  echo "[06-verify] Voices directory exists with ${VOICE_COUNT} files"
+  
+  if [ "$VOICE_COUNT" -lt 100 ]; then
+    echo "[06-verify] ERROR: Too few voice files (expected 900+, got ${VOICE_COUNT})"
+    ERRORS=$((ERRORS + 1))
+  fi
+  
+  # Check specifically for p004 files
+  echo ""
+  echo "=== P004 voice files ==="
+  P004_FILES=$(find "${VOICES_DIR}" -path "*p004*" -type f | wc -l)
+  if [ "$P004_FILES" -eq 0 ]; then
+    echo "[06-verify] ERROR: No p004 voice files found"
+    ERRORS=$((ERRORS + 1))
+  else
+    echo "[06-verify] Found ${P004_FILES} p004 voice files:"
+    find "${VOICES_DIR}" -path "*p004*" -type f | head -5
+  fi
+fi
+
+# 3) Check if server is running and accessible
+echo ""
+echo "=== Server connectivity ==="
+if command -v curl >/dev/null 2>&1; then
+  if curl -s --max-time 5 "http://127.0.0.1:${TTS_PORT}/api/build_info" >/dev/null; then
+    echo "[06-verify] Server is responding on port ${TTS_PORT}"
+  else
+    echo "[06-verify] WARNING: Server not responding on port ${TTS_PORT} (may still be starting)"
+  fi
+else
+  echo "[06-verify] curl not available, skipping server connectivity check"
+fi
+
+# 4) Check recent server logs for voice loading
+echo ""
+echo "=== Server logs (voice loading) ==="
+if [ -f "${TTS_LOG_DIR}/tts-server.log" ]; then
+  echo "[06-verify] Recent voice-related log entries:"
+  grep -i "voice\|loading\|warming\|p004\|ears" "${TTS_LOG_DIR}/tts-server.log" | tail -10 || echo "No voice-related logs found"
+else
+  echo "[06-verify] WARNING: Server log file not found: ${TTS_LOG_DIR}/tts-server.log"
+fi
+
+# Summary
+echo ""
+echo "=== Verification Summary ==="
+if [ "$ERRORS" -eq 0 ]; then
+  echo "[06-verify] ✅ All checks passed! Configuration looks correct."
+  echo "[06-verify] Voice: ${TTS_VOICE:-ears/p004/freeform_speech_01.wav}"
+  echo "[06-verify] Server: ws://127.0.0.1:${TTS_PORT}/api/tts_streaming"
+else
+  echo "[06-verify] ❌ Found ${ERRORS} configuration errors that need fixing"
+  echo "[06-verify] Run: rm -f '${TTS_CONFIG}' && bash scripts/02_fetch_tts_configs.sh"
+  exit 1
+fi
