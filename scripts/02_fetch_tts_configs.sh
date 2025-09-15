@@ -99,7 +99,10 @@ fi
 
 # Ensure modules.tts_py.py sub-table exists and set Python-side overrides for 0.75B EN
 VOICE_REL="${TTS_VOICE:-ears/p004/freeform_speech_01.wav}"
-VOICE_FOLDER_PATTERN="${VOICES_DIR:-${ROOT_DIR}/.data/voices}"
+VOICES_DIR="${VOICES_DIR:-${ROOT_DIR}/.data/voices}"
+# Use absolute path and pin to p004 embeddings only to avoid random voice selection
+VOICE_FOLDER_PATTERN="${VOICES_DIR}/ears/p004/*.safetensors"
+DEFAULT_VOICE_ABS="${VOICES_DIR}/${VOICE_REL}"
 if ! grep -q "^\[modules.tts_py.py\]" "${DEST_CFG}"; then
   cat >> "${DEST_CFG}" <<EOF
 
@@ -107,18 +110,18 @@ if ! grep -q "^\[modules.tts_py.py\]" "${DEST_CFG}"; then
 # Python module overrides for tts.py
 n_q = 16
 voice_folder = "${VOICE_FOLDER_PATTERN}"
-default_voice = "${VOICE_REL}"
+default_voice = "${DEFAULT_VOICE_ABS}"
 # Quality-first for the first ~200 ms, still low latency
 interleaved_text_only = 0
-initial_padding = 2
+initial_padding = 3
 final_padding = 2
 max_padding = 4
 padding_between = 1
 padding_bonus = 0.5
-cfg_coef = 1.6
+cfg_coef = 1.1
 EOF
 else
-  awk -v voice_folder="${VOICE_FOLDER_PATTERN}" -v default_voice="${VOICE_REL}" '
+  awk -v voice_folder="${VOICE_FOLDER_PATTERN}" -v default_voice="${DEFAULT_VOICE_ABS}" '
     BEGIN{inblk=0}
     /^\[modules\.tts_py\.py\]/{inblk=1}
     /^\[/{if(inblk){inblk=0}}
@@ -126,10 +129,10 @@ else
       if(inblk && $1 ~ /^n_q/){$0="n_q = 16"}
       if(inblk && $1 ~ /^voice_folder/){$0="voice_folder = \"" voice_folder "\""}
       if(inblk && $1 ~ /^default_voice/){$0="default_voice = \"" default_voice "\""}
-      if(inblk && $1 ~ /^cfg_coef/){$0="cfg_coef = 1.6"}
+      if(inblk && $1 ~ /^cfg_coef/){$0="cfg_coef = 1.1"}
       if(inblk && $1 ~ /^padding_between/){$0="padding_between = 1"}
       if(inblk && $1 ~ /^interleaved_text_only/){$0="interleaved_text_only = 0"}
-      if(inblk && $1 ~ /^initial_padding/){$0="initial_padding = 2"}
+      if(inblk && $1 ~ /^initial_padding/){$0="initial_padding = 3"}
       if(inblk && $1 ~ /^final_padding/){$0="final_padding = 2"}
       if(inblk && $1 ~ /^max_padding/){$0="max_padding = 4"}
       if(inblk && $1 ~ /^padding_bonus/){$0="padding_bonus = 0.5"}

@@ -37,6 +37,10 @@ mkdir -p "${LOG_DIR}"
 echo "[03-tts] Starting moshi TTS server (local build)…"
 echo "[03-tts] Using config: ${CFG}"
 
+# Debug: Show voice and tokenizer configuration
+echo "[03-tts] Voice and tokenizer configuration:"
+grep -nE 'voice_folder|default_voice|text_tokenizer_file|hf-snapshot' "${CFG}" || echo "No voice/tokenizer config found"
+
 # Show auth configuration so you know if the server requires API keys
 echo "[03-tts] Auth configuration:"
 grep -n 'authorized_ids' "$CFG" || echo "No auth configured (server is open)"

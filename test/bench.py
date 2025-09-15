@@ -123,6 +123,9 @@ async def _tts_one(
             
             return chunks
         
+        # Send a primer space frame first to ensure clean tokenizer context
+        await ws.send(msgpack.packb({"type": "Text", "text": " "}, use_bin_type=True))
+        
         chunks = create_chunks(text)
         # Merge tiny first two chunks if they're too small for good priming
         if len(chunks) >= 2 and len(chunks[0].split()) < 10:
