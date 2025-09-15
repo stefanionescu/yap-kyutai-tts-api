@@ -198,6 +198,9 @@ async def tts_client(
         for text in texts:
             all_chunks.extend(create_chunks(text))
         
+        # Send a primer space frame first to ensure clean tokenizer context
+        await ws.send(msgpack.packb({"type": "Text", "text": " "}, use_bin_type=True))
+        
         # Merge tiny first two chunks if they're too small for good priming
         if len(all_chunks) >= 2 and len(all_chunks[0].split()) < 10:
             all_chunks = [" ".join(all_chunks[:2])] + all_chunks[2:]
