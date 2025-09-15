@@ -23,7 +23,7 @@ def _ws_url(server: str, voice_path: Optional[str]) -> str:
     if voice_path:
         qp.append(f"voice={quote(voice_path)}")
     qp.append("format=PcmMessagePack")  # server converts to raw PCM frames
-    qp.append("max_seq_len=512")
+    qp.append("max_seq_len=768")
     return f"{base}/api/tts_streaming?{'&'.join(qp)}"
 
 def _write_wav_int16(path: Path, pcm_i16: np.ndarray, sr: int) -> None:
@@ -94,6 +94,10 @@ async def _run(server: str, text: str, voice_path: Optional[str], out_path: Path
             return chunks
         
         chunks = create_chunks(text)
+        # Merge tiny first two chunks if they're too small for good priming
+        if len(chunks) >= 2 and len(chunks[0].split()) < 10:
+            chunks = [" ".join(chunks[:2])] + chunks[2:]
+        
         for i, chunk in enumerate(chunks):
             # Add leading space to every chunk, including the first, to keep SPM segmentation consistent
             fragment = (" " + chunk)
