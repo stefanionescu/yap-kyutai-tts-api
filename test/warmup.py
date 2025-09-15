@@ -71,9 +71,6 @@ async def _run(server: str, text: str, voice_path: Optional[str], out_path: Path
     pcm_chunks: list[np.ndarray] = []
 
     async with connect(url, **ws_options) as ws:
-        print(f"[debug] Connected to {url}")
-        print(f"[debug] Streaming text in ~12-token chunks: {text}")
-        
         # Kyutai-style streaming: send text in ~12-token chunks with proper spacing
         def create_chunks(text: str, target_tokens_per_chunk: int = 12) -> list[str]:
             """Split text into chunks of approximately target_tokens_per_chunk tokens."""
@@ -102,37 +99,27 @@ async def _run(server: str, text: str, voice_path: Optional[str], out_path: Path
             # Add leading space to every chunk, including the first, to keep SPM segmentation consistent
             fragment = (" " + chunk)
             await ws.send(msgpack.packb({"type": "Text", "text": fragment}, use_bin_type=True))
-            print(f"[debug] Sent chunk {i+1}/{len(chunks)}: '{fragment}'")
         
         # End-of-sentence to trigger synthesis
         await ws.send(msgpack.packb({"type": "Eos"}, use_bin_type=True))
-        print(f"[debug] Sent Eos message - synthesis should start")
 
         async for raw in ws:
             if not isinstance(raw, (bytes, bytearray)):
-                print(f"[debug] recv non-binary: {type(raw)} {raw}")
                 continue
             msg = msgpack.unpackb(raw, raw=False)
-
-            # Print EVERY message we receive
-            print(f"[debug] recv: {msg}")
 
             mtype = msg.get("type")
             if mtype in ("Audio", "Pcm", "AudioPcm", "AudioChunk", "AudioF32", "AudioI16"):
                 pcm_i16, sr = _extract_pcm(msg)
-                print(f"[debug] audio frame: {pcm_i16.size} samples, sr={sr}")
                 if pcm_i16.size > 0:
                     if ttfb is None:
                         ttfb = time.perf_counter() - t0
                     sample_rate = sr
                     pcm_chunks.append(pcm_i16)
             elif mtype in ("End", "Final", "Done", "Marker"):
-                print(f"[debug] end message received: {mtype}")
                 break
             elif mtype in ("Error",):
                 raise RuntimeError(f"server error: {msg}")
-            else:
-                print(f"[debug] other message type: {mtype}")
 
     wall = time.perf_counter() - t0
 
