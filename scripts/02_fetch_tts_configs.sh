@@ -50,19 +50,12 @@ else
   TEXT_SPM="${MODEL_DIR}/tokenizer_spm_8k_en_fr_audio.model"
 fi
 
-VOICE_REL="${TTS_VOICE:-ears/p004/freeform_speech_01.wav.@240.safetensors}"
+VOICE_REL="${TTS_VOICE:-ears/p004/freeform_speech_01.wav}"
 VOICE_FOLDER_PATTERN="${VOICES_DIR}"
 BS_VAL="${TTS_BATCH_SIZE:-32}"
 
-# Derive the attribute name expected by tts.py (default_voice should NOT include the embedding suffix)
-# If VOICE_REL looks like an embedding file (e.g., freeform.wav.<hash>@240.safetensors), trim to the *.wav base.
+# Use the WAV file directly for default_voice
 VOICE_REL_BASE="${VOICE_REL}"
-case "${VOICE_REL_BASE}" in
-  *.safetensors)
-    # Keep everything through the first .wav occurrence
-    VOICE_REL_BASE=$(printf "%s" "${VOICE_REL_BASE}" | sed -E 's|(.*\.wav).*|\1|')
-    ;;
-esac
 
 echo "[02-tts] Writing minimal server config to ${DEST_CFG}"
 cat > "${DEST_CFG}" <<EOF
@@ -78,7 +71,7 @@ text_bos_token = 1
 [modules.tts_py]
 type = "Py"
 path = "/api/tts_streaming"
-batch_size = ${BS_VAL}
+batch_size = ${BS_VAL}  # Reduced from 32 to 16 for better TTFB with acceptable throughput
 text_tokenizer_file = "${TEXT_SPM}"
 text_bos_token = 1
 
