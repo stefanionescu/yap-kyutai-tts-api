@@ -43,7 +43,13 @@ fi
 
 # Create a controlled venv at repo root
 cd "${SCRIPT_DIR}/.."  # Go to repo root
-uv venv
+if [ -d ".venv" ]; then
+  echo "[01-tts] Replacing existing venv"
+  uv venv --clear
+else
+  echo "[01-tts] Creating new venv"
+  uv venv
+fi
 source .venv/bin/activate
 
 # Use local moshi repo's moshi-server Python manifests to install exact deps
