@@ -159,7 +159,7 @@ def main() -> int:
     ap = argparse.ArgumentParser(description="Warmup Kyutai TTS over WebSocket (PCM MessagePack)")
     ap.add_argument("--server", default="127.0.0.1:8089")
     ap.add_argument("--voice", default=str(DATA_DIR / "voices" / "ears" / "p004" / "freeform_speech_01.wav"))
-    ap.add_argument("--text", default="Warming up the model and caches.")
+    ap.add_argument("--text", default="Wow, you're so hot and handsome! Can't wait for the app to be done so we can talk. See you there sweetie!")
     ap.add_argument("--api-key", default=None, help="API key for authentication (defaults to KYUTAI_API_KEY env var or 'public_token')")
     args = ap.parse_args()
 

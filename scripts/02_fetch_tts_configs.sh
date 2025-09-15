@@ -52,7 +52,7 @@ fi
 
 VOICE_REL="${TTS_VOICE:-ears/p004/freeform_speech_01.wav.@240.safetensors}"
 VOICE_FOLDER_PATTERN="${VOICES_DIR}"
-BS_VAL="${TTS_BATCH_SIZE:-32}"
+BS_VAL="${TTS_BATCH_SIZE:-8}"
 
 # Derive the attribute name expected by tts.py (default_voice should NOT include the embedding suffix)
 # If VOICE_REL looks like an embedding file (e.g., freeform.wav.<hash>@240.safetensors), trim to the *.wav base.
@@ -72,20 +72,24 @@ instance_name = "tts"
 authorized_ids = ["public_token"]
 
 # --- Text tokenizer (Kyutai TTS 1.6B EN/FR) ---
-text_tokenizer_file = "${TEXT_SPM}"
+text_tokenizer_file = "hf://kyutai/tts-1.6b-en_fr/tokenizer_spm_8k_en_fr_audio.model"
 text_bos_token = 1
 
 [modules.tts_py]
 type = "Py"
 path = "/api/tts_streaming"
-batch_size = ${BS_VAL}
-text_tokenizer_file = "${TEXT_SPM}"
+batch_size = ${BS_VAL}  # Adjust to your GPU memory capacity
+text_tokenizer_file = "hf://kyutai/tts-1.6b-en_fr/tokenizer_spm_8k_en_fr_audio.model"
 text_bos_token = 1
 
 [modules.tts_py.py]
 # Python module overrides for tts.py (1.6B with embeddings)
 hf_repo = "${TTS_HF_REPO}"
-n_q = 16
+log_folder = "\$HOME/tmp/moshi-server-logs"
+cfg_coef = 2.0
+cfg_is_no_text = true
+padding_between = 1
+n_q = 24
 voice_folder = "${VOICE_FOLDER_PATTERN}"
 default_voice = "${VOICE_REL_BASE}"
 
