@@ -3,7 +3,7 @@ set -euo pipefail
 source "$(dirname "$0")/env.sh"
 echo "[02-tts] Fetching DSM repo for configs & scripts…"
 
-DSM_DIR="${DSM_REPO_DIR:-${ROOT_DIR}/.data/delayed-streams-modeling}"
+-modeling}"
 if [ ! -d "${DSM_DIR}" ]; then
   git clone --depth=1 https://github.com/kyutai-labs/delayed-streams-modeling "${DSM_DIR}"
 else
