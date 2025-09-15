@@ -23,24 +23,24 @@ else
   echo "=== Current config voice settings ==="
   grep -A5 -B5 "voice_folder\|default_voice\|n_q\|hf_repo" "${TTS_CONFIG}" || true
   
-  # Validate specific settings
+  # Validate specific settings for 1.6B
   if grep -q 'voice_folder.*hf-snapshot' "${TTS_CONFIG}"; then
     echo "[06-verify] ERROR: Config still uses HF snapshot, should use local path"
     ERRORS=$((ERRORS + 1))
   fi
-  
-  if ! grep -q 'n_q = 16' "${TTS_CONFIG}"; then
-    echo "[06-verify] ERROR: Config should have n_q = 16 for 0.75B model"
+
+  if ! grep -q 'n_q = 32' "${TTS_CONFIG}"; then
+    echo "[06-verify] ERROR: Config should have n_q = 32 for 1.6B model"
     ERRORS=$((ERRORS + 1))
   fi
-  
+
   if ! grep -q 'default_voice.*ears/p004' "${TTS_CONFIG}"; then
-    echo "[06-verify] ERROR: Config should have default_voice = ears/p004/..."
+    echo "[06-verify] ERROR: Config should have default_voice under ears/p004 (attribute name)"
     ERRORS=$((ERRORS + 1))
   fi
-  
-  if ! grep -q 'hf_repo.*0.75b-en-public' "${TTS_CONFIG}"; then
-    echo "[06-verify] ERROR: Config should have hf_repo = kyutai/tts-0.75b-en-public"
+
+  if ! grep -q 'hf_repo.*tts-1.6b-en_fr' "${TTS_CONFIG}"; then
+    echo "[06-verify] ERROR: Config should have hf_repo = kyutai/tts-1.6b-en_fr"
     ERRORS=$((ERRORS + 1))
   fi
 fi
@@ -63,13 +63,13 @@ else
   # Check specifically for p004 files
   echo ""
   echo "=== P004 voice files ==="
-  P004_FILES=$(find "${VOICES_DIR}" -path "*p004*" -type f | wc -l)
+  P004_FILES=$(find "${VOICES_DIR}/ears/p004" -maxdepth 1 -type f | wc -l)
   if [ "$P004_FILES" -eq 0 ]; then
     echo "[06-verify] ERROR: No p004 voice files found"
     ERRORS=$((ERRORS + 1))
   else
     echo "[06-verify] Found ${P004_FILES} p004 voice files:"
-    find "${VOICES_DIR}" -path "*p004*" -type f | head -5
+    find "${VOICES_DIR}/ears/p004" -maxdepth 1 -type f | head -5
   fi
 fi
 

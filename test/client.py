@@ -35,7 +35,7 @@ load_dotenv(ROOT_DIR / ".env")
 VOICES_DIR = Path(os.getenv("VOICES_DIR", ROOT_DIR / ".data" / "voices"))
 
 DEFAULT_TEXT = (
-    "Are you ok bro?"
+    "It's kinda hot to see your juicy ass bounce on my cock that hard."
 )
 
 
