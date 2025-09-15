@@ -1,65 +1,61 @@
 #!/usr/bin/env python3
 """
-Warmup moshi-server by sending short texts and discarding output after writing WAVs to .data/warmup.
-Measures TTFB and wall-to-final to prime caches and JIT.
+Warmup script with WebSocket connection reuse and word-by-word sending.
+
+This demonstrates proper TTFB measurement by reusing WebSocket connections
+while sending text word-by-word like the other test clients.
 """
 from __future__ import annotations
-import argparse, asyncio, os, time, json, wave
+
+import argparse
+import asyncio
+import os
+import time
 from pathlib import Path
-from typing import Optional, Iterable, List
-import msgpack, numpy as np
-from websockets.asyncio.client import connect
+from typing import List, Optional
+
+import msgpack  # type: ignore
+import numpy as np  # type: ignore
+from websockets.asyncio.client import connect  # type: ignore
 from urllib.parse import quote
+import wave
+
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
-DATA_DIR = ROOT_DIR / ".data"
-WARM_DIR = DATA_DIR / "warmup"
-WARM_DIR.mkdir(parents=True, exist_ok=True)
+WARMUP_DIR = ROOT_DIR / ".data" / "warmup"
+WARMUP_DIR.mkdir(parents=True, exist_ok=True)
+
 
 def _ws_url(server: str, voice_path: Optional[str]) -> str:
-    base = server if server.startswith(("ws://", "wss://")) else f"ws://{server}"
-    base = base.rstrip("/")
-    qp: List[str] = [
-        "format=PcmMessagePack",
-        "max_seq_len=128",
-        "temp=0.2",
-        "seed=42",
-    ]
+    if server.startswith(("ws://", "wss://")):
+        base = server.rstrip("/")
+    else:
+        base = f"ws://{server.strip().rstrip('/')}"
+    qp: List[str] = []
     if voice_path:
         qp.append(f"voice={quote(voice_path)}")
+    qp.append("format=PcmMessagePack")
+    # Let server use default seq_len instead of constraining to 128
+    qp.append("temp=0.2")
+    qp.append("seed=42")
     return f"{base}/api/tts_streaming?{'&'.join(qp)}"
 
-def _write_wav_int16(path: Path, pcm_i16: np.ndarray, sr: int) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with wave.open(str(path), "wb") as wf:
-        wf.setnchannels(1)
-        wf.setsampwidth(2)  # 16-bit
-        wf.setframerate(sr)
-        wf.writeframes(pcm_i16.tobytes())
 
-def _extract_pcm(msg: dict) -> tuple[np.ndarray, int]:
-    """Return (int16 mono samples, sample_rate) or (empty, sr). Accept multiple shapes."""
-    # Moshi/Mimi always operates at 24 kHz - force this regardless of server claims
-    sr = 24000
-    # candidate fields in order of likelihood
-    candidates: Iterable[str] = ("pcm", "data", "pcm_i16", "pcm_f32", "samples")
-    for k in candidates:
-        if k in msg and msg[k] is not None:
-            arr = np.asarray(msg[k])
-            if arr.size == 0:
-                return np.empty(0, np.int16), sr
-            if arr.dtype.kind == "f":
-                arr = np.clip(arr, -1.0, 1.0)
-                return (arr * 32767.0).astype(np.int16), sr
-            # ints: assume already in [-32768,32767]
-            return arr.astype(np.int16, copy=False), sr
-    return np.empty(0, np.int16), sr
-
-async def _run(server: str, text: str, voice_path: Optional[str], out_path: Path, api_key: str) -> dict:
+async def warmup_with_reuse(
+    server: str,
+    texts: List[str],
+    voice_path: Optional[str] = None,
+    api_key: Optional[str] = None,
+) -> None:
+    """
+    Demonstrates WebSocket connection reuse with word-by-word sending.
+    This eliminates connection overhead while matching test client behavior.
+    """
     url = _ws_url(server, voice_path)
     headers = {"kyutai-api-key": api_key} if api_key else {}
+    
     ws_options = {
-        "additional_headers": headers,  # websockets v15 API
+        "additional_headers": headers,
         "max_size": None,
         "ping_interval": 30,
         "ping_timeout": 30,
@@ -69,121 +65,121 @@ async def _run(server: str, text: str, voice_path: Optional[str], out_path: Path
         "close_timeout": 0.5,
     }
 
-    # We'll measure both:
-    # 1) end-to-end TTFB (includes WS connect) -> ttfb_e2e_s
-    # 2) server TTFB (post-connect, post-send) -> ttfb_server_s (matches Kyutai's claim)
-    t0_e2e = time.perf_counter()
-    time_to_first_audio_e2e: Optional[float] = None
-    time_to_first_audio_server: Optional[float] = None
-    sample_rate = 24000
-    pcm_chunks: list[np.ndarray] = []
+    print(f"Connecting to {url}")
+    print(f"Warming up with {len(texts)} requests using connection reuse...")
+    
+    async with connect(url, **ws_options) as ws:  # type: ignore
+        for i, text in enumerate(texts):
+            print(f"\nRequest {i+1}/{len(texts)}: '{text[:50]}{'...' if len(text) > 50 else ''}'")
+            
+            # Metrics for this request only
+            t0_request = time.perf_counter()
+            ttfb_request: Optional[float] = None
+            pcm_chunks: List[np.ndarray] = []
+            sample_rate = 24000
+            sr_seen = set()
+            
+            # Send request word by word
+            words = text.split()
+            send_time = time.perf_counter()  # Start timing from first word
+            for j, word in enumerate(words):
+                fragment = word if j == 0 else (" " + word)
+                await ws.send(msgpack.packb({"type": "Text", "text": fragment}, use_bin_type=True))
+                await asyncio.sleep(0)  # tiny yield
+            await ws.send(msgpack.packb({"type": "Eos"}, use_bin_type=True))
+            
+            # Receive response
+            while True:
+                raw = await ws.recv()
+                if not isinstance(raw, (bytes, bytearray)):
+                    continue
+                    
+                data = msgpack.unpackb(raw, raw=False)
+                kind = data.get("type")
+                
+                if kind in ("Audio", "Pcm", "AudioPcm", "AudioChunk", "AudioF32", "AudioI16"):
+                    # Extract PCM data  
+                    arr = None
+                    for k in ("pcm", "data", "pcm_i16", "pcm_f32", "samples"):
+                        if k in data and data[k] is not None:
+                            arr = np.asarray(data[k])
+                            break
+                    
+                    if arr is not None and arr.size > 0:
+                        if ttfb_request is None:
+                            ttfb_request = time.perf_counter() - send_time
+                        
+                        # Force 24kHz (Moshi/Mimi standard)
+                        sample_rate = 24000
+                        sr_seen.add(sample_rate)
+                        
+                        if arr.dtype.kind == "f":
+                            arr = np.clip(arr, -1.0, 1.0)
+                            pcm_i16 = (arr * 32767.0).astype(np.int16)
+                        else:
+                            pcm_i16 = arr.astype(np.int16, copy=False)
+                        
+                        pcm_chunks.append(pcm_i16)
+                        
+                elif kind in ("End", "Final", "Done", "Marker"):
+                    break
+                elif kind == "Error":
+                    print(f"  Server error: {data}")
+                    break
+            
+            # Compute metrics for this request
+            wall_time = time.perf_counter() - t0_request
+            
+            if pcm_chunks:
+                pcm_int16 = np.concatenate(pcm_chunks, dtype=np.int16)
+                audio_s = len(pcm_int16) / float(sample_rate)
+                
+                # Save audio file
+                ts = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
+                out_path = WARMUP_DIR / f"warmup_{ts}_{i:02d}.wav"
+                with wave.open(str(out_path), "wb") as wf:
+                    wf.setnchannels(1)
+                    wf.setsampwidth(2)
+                    wf.setframerate(sample_rate)
+                    wf.writeframes(pcm_int16.tobytes())
+                
+                # Check for sample rate issues
+                if len(sr_seen) != 1:
+                    print(f"  WARNING: Mixed sample rates: {sr_seen}")
+                
+                rtf = wall_time / audio_s if audio_s > 0 else float("inf")
+                print(f"  TTFB (server): {ttfb_request or 0:.3f}s")
+                print(f"  Wall time: {wall_time:.3f}s")
+                print(f"  Audio duration: {audio_s:.3f}s") 
+                print(f"  RTF: {rtf:.3f}")
+                print(f"  Saved: {out_path.name}")
+            else:
+                print(f"  No audio received")
 
-    async with connect(url, **ws_options) as ws:
-        # True full-duplex: concurrent reader/sender for optimal TTFB
-        t0_server_holder = {"t0": None}
+    print(f"\nWarmup completed. Audio files saved to {WARMUP_DIR}")
 
-        async def reader():
-            nonlocal sample_rate, time_to_first_audio_e2e, time_to_first_audio_server
-            try:
-                while True:
-                    raw = await ws.recv()
-                    if not isinstance(raw, (bytes, bytearray)):
-                        continue
-                    msg = msgpack.unpackb(raw, raw=False)
 
-                    mtype = msg.get("type")
-                    if mtype in ("Audio", "Pcm", "AudioPcm", "AudioChunk", "AudioF32", "AudioI16"):
-                        pcm_i16, sr = _extract_pcm(msg)
-                        if pcm_i16.size > 0:
-                            if time_to_first_audio_e2e is None:
-                                time_to_first_audio_e2e = time.perf_counter() - t0_e2e
-                            if time_to_first_audio_server is None and t0_server_holder["t0"] is not None:
-                                time_to_first_audio_server = time.perf_counter() - t0_server_holder["t0"]
-                            sample_rate = sr
-                            pcm_chunks.append(pcm_i16)
-                    elif mtype in ("End", "Final", "Done", "Marker"):
-                        break
-                    elif mtype in ("Error",):
-                        raise RuntimeError(f"server error: {msg}")
-            except (asyncio.CancelledError, Exception):
-                # Connection closed or task cancelled, exit gracefully
-                pass
-
-        async def sender():
-            try:
-                words = text.split()
-                for i, word in enumerate(words):
-                    fragment = word if i == 0 else (" " + word)
-                    await ws.send(msgpack.packb({"type": "Text", "text": fragment}, use_bin_type=True))
-                    if t0_server_holder["t0"] is None:
-                        t0_server_holder["t0"] = time.perf_counter()
-                    # tiny yield to let reader run
-                    await asyncio.sleep(0)
-                # End-of-sentence to trigger synthesis
-                await ws.send(msgpack.packb({"type": "Eos"}, use_bin_type=True))
-            except (asyncio.CancelledError, Exception):
-                # Connection closed or task cancelled, exit gracefully
-                pass
-
-        # run both concurrently, handle exceptions gracefully
-        await asyncio.gather(reader(), sender(), return_exceptions=True)
-
-    wall = time.perf_counter() - t0_e2e
-
-    if pcm_chunks:
-        pcm = np.concatenate(pcm_chunks, dtype=np.int16)
-        _write_wav_int16(out_path, pcm, sample_rate)
-        audio_s = len(pcm) / float(sample_rate)
-        return {
-            "ttfb_e2e_s": float(time_to_first_audio_e2e or 0.0),
-            "ttfb_server_s": float(time_to_first_audio_server or 0.0),
-            "wall_s": float(wall),
-            "audio_s": float(audio_s),
-            "rtf": float((wall / audio_s) if audio_s > 0 else 0.0),
-            "xrt": float((audio_s / wall) if wall > 0 else 0.0),
-            "samples": int(len(pcm)),
-            "sr": int(sample_rate),
-        }
-    else:
-        return {
-            "ttfb_e2e_s": 0.0,
-            "ttfb_server_s": 0.0,
-            "wall_s": float(wall),
-            "audio_s": 0.0,
-            "rtf": 0.0,
-            "xrt": 0.0,
-            "samples": 0,
-            "sr": int(sample_rate),
-        }
-
-def main() -> int:
-    ap = argparse.ArgumentParser(description="Warmup Kyutai TTS over WebSocket (PCM MessagePack)")
-    ap.add_argument("--server", default="127.0.0.1:8089")
-    ap.add_argument("--voice", default=os.getenv("TTS_VOICE", "ears/p004/freeform_speech_01.wav.1e68beda@240.safetensors"))
-    ap.add_argument("--text", default="Wow, you're so hot and handsome! Can't wait for the app to be done so we can talk. See you there sweetie!")
-    ap.add_argument("--api-key", default=None, help="API key for authentication (defaults to KYUTAI_API_KEY env var or 'public_token')")
+def main():
+    ap = argparse.ArgumentParser(description="TTS warmup with connection reuse")
+    ap.add_argument("--server", default="127.0.0.1:8089", help="Server address")
+    ap.add_argument("--voice", default=os.environ.get("TTS_VOICE", "ears/p004/freeform_speech_01.wav.1e68beda@240.safetensors"), help="Voice path")
+    ap.add_argument("--api-key", default=None, help="API key (defaults to KYUTAI_API_KEY env var or 'public_token')")
+    ap.add_argument("--text", action="append", default=None, help="Text to synthesize (repeat for multiple)")
     args = ap.parse_args()
-
+    
+    # Default texts if none provided
+    texts = args.text or [
+        "This is a warmup request to load the model.",
+        "The quick brown fox jumps over the lazy dog.",
+        "Hello, this is a test of the TTS system with proper connection reuse.",
+        "Connection reuse should show better TTFB measurements."
+    ]
+    
+    # Determine API key
     api_key = args.api_key or os.getenv("KYUTAI_API_KEY") or "public_token"
-    out = WARM_DIR / "warmup.wav"
-    res = asyncio.run(_run(args.server, args.text, args.voice, out, api_key))
+    
+    asyncio.run(warmup_with_reuse(args.server, texts, args.voice, api_key))
 
-    if res.get("samples", 0) > 0:
-        print(f"Saved warmup WAV: {out}")
-    else:
-        print("No audio received (check logs / config).")
-    
-    # Print results without JSON formatting
-    print(f"TTFB (e2e): {res['ttfb_e2e_s']:.4f}s")
-    print(f"TTFB (srv): {res['ttfb_server_s']:.4f}s") 
-    print(f"Wall: {res['wall_s']:.4f}s") 
-    print(f"Audio: {res['audio_s']:.4f}s")
-    print(f"RTF: {res['rtf']:.4f}")
-    print(f"xRT: {res['xrt']:.4f}")
-    print(f"Samples: {res['samples']}")
-    print(f"Sample rate: {res['sr']}Hz")
-    
-    return 0
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    main()
