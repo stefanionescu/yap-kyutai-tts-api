@@ -43,13 +43,12 @@ echo "[03-tts] Voice and tokenizer configuration:"
 grep -nE 'voice_folder|default_voice|text_tokenizer_file|hf-snapshot' "${CFG}" || echo "No voice/tokenizer config found"
 echo "[03-tts] Reusing config at ${CFG} (no re-generation here)"
 
-# Verify voice embedding exists
-echo "[03-tts] Verifying voice embedding:"
-echo "[03-tts] Expected voice: ${VOICES_DIR}/${TTS_VOICE}"
+echo "[03-tts] Verifying voice embedding (.safetensors):"
+echo "[03-tts] Expected: ${VOICES_DIR}/${TTS_VOICE}"
 if [ -f "${VOICES_DIR}/${TTS_VOICE}" ]; then
     echo "[03-tts] ✓ Voice embedding found:"
     ls -lh "${VOICES_DIR}/${TTS_VOICE}"
-    # Auto-detect if there are multiple p004 embeddings for reference
+    # Count available p004 embeddings
     P004_COUNT=$(find "${VOICES_DIR}/ears/p004" -maxdepth 1 -name "*.safetensors" 2>/dev/null | wc -l)
     echo "[03-tts] p004 embeddings available: ${P004_COUNT}"
 else

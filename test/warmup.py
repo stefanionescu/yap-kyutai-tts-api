@@ -6,7 +6,7 @@ Measures TTFB and wall-to-final to prime caches and JIT.
 from __future__ import annotations
 import argparse, asyncio, os, time, json, wave
 from pathlib import Path
-from typing import Optional, Iterable
+from typing import Optional, Iterable, List
 import msgpack, numpy as np
 from websockets.asyncio.client import connect
 from urllib.parse import quote
@@ -19,11 +19,14 @@ WARM_DIR.mkdir(parents=True, exist_ok=True)
 def _ws_url(server: str, voice_path: Optional[str]) -> str:
     base = server if server.startswith(("ws://", "wss://")) else f"ws://{server}"
     base = base.rstrip("/")
-    qp = []
+    qp: List[str] = [
+        "format=PcmMessagePack",
+        "max_seq_len=768",
+        "temp=0.2",
+        "seed=42",
+    ]
     if voice_path:
         qp.append(f"voice={quote(voice_path)}")
-    qp.append("format=PcmMessagePack")  # server converts to raw PCM frames
-    qp.append("max_seq_len=768")
     return f"{base}/api/tts_streaming?{'&'.join(qp)}"
 
 def _write_wav_int16(path: Path, pcm_i16: np.ndarray, sr: int) -> None:

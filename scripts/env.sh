@@ -13,17 +13,16 @@ TTS_TMUX_SESSION=yap-tts
 TTS_CONFIG=${TTS_CONFIG:-${ROOT_DIR}/.data/server/config-tts.toml}
 DSM_REPO_DIR=${DSM_REPO_DIR:-${ROOT_DIR}/.data/delayed-streams-modeling}
 
-# Voice assets
+# Voice assets (use speaker **embedding** for 1.6B)
 VOICES_DIR=${VOICES_DIR:-${ROOT_DIR}/.data/voices}
-# Use WAV file for 0.75B prefix-cloning model (not safetensors)
-TTS_VOICE_DEFAULT="ears/p004/freeform_speech_01.wav"
+# Prefer any p004 @240 **.safetensors** file; fall back to first available embedding
+TTS_VOICE_DEFAULT="ears/p004/freeform_speech_01.wav.@240.safetensors"
 TTS_VOICE=${TTS_VOICE:-$TTS_VOICE_DEFAULT}
-
-# Auto-detect p004 WAV file if default doesn't exist
-if [ ! -f "${VOICES_DIR}/${TTS_VOICE}" ] && [ "${TTS_VOICE}" = "${TTS_VOICE_DEFAULT}" ]; then
-    AUTO_VOICE=$(find "${VOICES_DIR}/ears/p004" -maxdepth 1 -name "*.wav" -type f | head -n1 | sed "s|${VOICES_DIR}/||" 2>/dev/null || echo "")
+# Auto-detect a p004 embedding if the placeholder doesn't exist (hash varies)
+if [ ! -f "${VOICES_DIR}/${TTS_VOICE}" ]; then
+    AUTO_VOICE=$(find "${VOICES_DIR}/ears/p004" -maxdepth 1 -name "*@240.safetensors" -type f | head -n1 | sed "s|${VOICES_DIR}/||" 2>/dev/null || echo "")
     if [ -n "${AUTO_VOICE}" ]; then
-        echo "[env] Auto-detected p004 voice: ${AUTO_VOICE} (original ${TTS_VOICE_DEFAULT} not found)" >&2
+        echo "[env] Auto-detected p004 embedding: ${AUTO_VOICE}" >&2
         TTS_VOICE="${AUTO_VOICE}"
     fi
 fi

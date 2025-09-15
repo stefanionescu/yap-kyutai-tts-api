@@ -35,7 +35,7 @@ load_dotenv(ROOT_DIR / ".env")
 VOICES_DIR = Path(os.getenv("VOICES_DIR", ROOT_DIR / ".data" / "voices"))
 
 DEFAULT_TEXT = (
-    "I kinda wanna go to the beach"
+    "Are you ok bro?"
 )
 
 
@@ -53,8 +53,7 @@ def _ws_url(server: str, voice_path: Optional[str]) -> str:
     qp: List[str] = [
         "format=PcmMessagePack",
         "max_seq_len=768",
-        "temp=0",
-        "cfg_coef=1.2",
+        "temp=0.2",
         "seed=42",
     ]
     # Temporarily comment out voice parameter for debugging
@@ -156,24 +155,8 @@ async def tts_client(
         "close_timeout": 0.5,
     }
 
-    # Calculate prefix samples to drop from voice WAV file
+    # 1.6B uses speaker **embeddings**; no audio prefix trimming needed.
     prefix_samples_to_drop = 0
-    if voice and voice.endswith(".wav"):
-        vpath = (VOICES_DIR / voice) if not voice.startswith("/") else Path(voice)
-        try:
-            import wave
-            with wave.open(str(vpath), "rb") as wf:
-                sr = wf.getframerate() or 24000
-                frames = wf.getnframes()
-                # Use server's actual output sr if it differs, we'll correct later:
-                prefix_samples_to_drop = int(frames * (24000.0 / sr))
-        except Exception:
-            pass  # fallback: keep your current 300ms heuristic
-            
-    # Heuristic fallback: trim 300 ms if we can't learn the exact prefix
-    DEFAULT_TRIM_MS = 300
-    if prefix_samples_to_drop == 0:
-        prefix_samples_to_drop = int(24000 * (DEFAULT_TRIM_MS / 1000.0))
 
     # Metrics
     connect_start = time.perf_counter()
