@@ -42,7 +42,7 @@ def _ws_url(server: str, voice_path: Optional[str]) -> str:
     if voice_path:
         qp.append(f"voice={quote(voice_path)}")
     qp.append("format=PcmMessagePack")
-    qp.append("max_seq_len=768")
+    qp.append("max_seq_len=128")
     qp.append("temp=0.2")
     qp.append("seed=42")
     return f"{base}/api/tts_streaming?{'&'.join(qp)}"
@@ -112,7 +112,7 @@ async def _tts_one(
 
     async with connect(url, **ws_options) as ws:  # type: ignore
         # Kyutai-style streaming: send text in ~12-token chunks with proper spacing, then Eos to trigger synthesis
-        def create_chunks(text: str, target_tokens_per_chunk: int = 12) -> List[str]:
+        def create_chunks(text: str, target_tokens_per_chunk: int = 8) -> List[str]:
             """Split text into chunks of approximately target_tokens_per_chunk tokens."""
             words = text.split()
             chunks = []
@@ -133,9 +133,7 @@ async def _tts_one(
         # No primer space frame - padding config in server handles clean onset
         
         chunks = create_chunks(text)
-        # Merge tiny first two chunks if they're too small for good priming
-        if len(chunks) >= 2 and len(chunks[0].split()) < 10:
-            chunks = [" ".join(chunks[:2])] + chunks[2:]
+        # IMPORTANT: do NOT merge the first two chunks; we want the smallest possible first prefill
         
         t0_server: Optional[float] = None
         for i, chunk in enumerate(chunks):

@@ -21,7 +21,7 @@ def _ws_url(server: str, voice_path: Optional[str]) -> str:
     base = base.rstrip("/")
     qp: List[str] = [
         "format=PcmMessagePack",
-        "max_seq_len=768",
+        "max_seq_len=128",
         "temp=0.2",
         "seed=42",
     ]
@@ -79,7 +79,7 @@ async def _run(server: str, text: str, voice_path: Optional[str], out_path: Path
 
     async with connect(url, **ws_options) as ws:
         # Kyutai-style streaming: send text in ~12-token chunks with proper spacing
-        def create_chunks(text: str, target_tokens_per_chunk: int = 12) -> list[str]:
+        def create_chunks(text: str, target_tokens_per_chunk: int = 8) -> list[str]:
             """Split text into chunks of approximately target_tokens_per_chunk tokens."""
             words = text.split()
             chunks = []
@@ -100,9 +100,7 @@ async def _run(server: str, text: str, voice_path: Optional[str], out_path: Path
         # No primer space frame - padding config in server handles clean onset
         
         chunks = create_chunks(text)
-        # Merge tiny first two chunks if they're too small for good priming
-        if len(chunks) >= 2 and len(chunks[0].split()) < 10:
-            chunks = [" ".join(chunks[:2])] + chunks[2:]
+        # IMPORTANT: do NOT merge the first two chunks; we want the smallest possible first prefill
         
         t0_server: Optional[float] = None
         for i, chunk in enumerate(chunks):
