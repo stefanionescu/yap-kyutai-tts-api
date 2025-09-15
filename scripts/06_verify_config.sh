@@ -29,8 +29,8 @@ else
     ERRORS=$((ERRORS + 1))
   fi
 
-  if ! grep -q 'n_q = 16' "${TTS_CONFIG}"; then
-    echo "[06-verify] ERROR: Config should have n_q = 16 (training baseline) for 1.6B model"
+  if ! grep -q 'n_q = 24' "${TTS_CONFIG}"; then
+    echo "[06-verify] ERROR: Config should have n_q = 24 (training baseline) for 1.6B model"
     ERRORS=$((ERRORS + 1))
   fi
 
@@ -41,8 +41,8 @@ else
     ERRORS=$((ERRORS + 1))
   fi
 
-  if ! grep -q 'batch_size = 32' "${TTS_CONFIG}"; then
-    echo "[06-verify] ERROR: Config should have batch_size = 32 (optimal for L40S)"
+  if ! grep -q 'batch_size = 16' "${TTS_CONFIG}"; then
+    echo "[06-verify] ERROR: Config should have batch_size = 16 (optimal for L40S)"
     ERRORS=$((ERRORS + 1))
   fi
 

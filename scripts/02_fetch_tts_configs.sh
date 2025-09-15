@@ -52,7 +52,7 @@ fi
 
 VOICE_REL="${TTS_VOICE:-ears/p004/freeform_speech_01.wav}"
 VOICE_FOLDER_PATTERN="${VOICES_DIR}"
-BS_VAL="${TTS_BATCH_SIZE:-32}"
+BS_VAL="${TTS_BATCH_SIZE:-16}"
 
 # Use the WAV file directly for default_voice
 VOICE_REL_BASE="${VOICE_REL}"
@@ -71,7 +71,7 @@ text_bos_token = 1
 [modules.tts_py]
 type = "Py"
 path = "/api/tts_streaming"
-batch_size = ${BS_VAL}  # Reduced from 32 to 16 for better TTFB with acceptable throughput
+batch_size = ${BS_VAL} 
 text_tokenizer_file = "${TEXT_SPM}"
 text_bos_token = 1
 
