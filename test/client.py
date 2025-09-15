@@ -83,7 +83,7 @@ def parse_args() -> argparse.Namespace:
     )
     ap.add_argument(
         "--voice",
-        default=os.getenv("YAP_TTS_VOICE", "ears/p004/freeform_speech_01.wav"),
+        default=os.getenv("YAP_TTS_VOICE", "ears/p004/freeform_speech_01.wav.1e68beda@240.safetensors"),
         help="Voice path available on server (relative to voices dir)",
     )
     ap.add_argument(
@@ -198,8 +198,7 @@ async def tts_client(
         for text in texts:
             all_chunks.extend(create_chunks(text))
         
-        # Send a primer space frame first to ensure clean tokenizer context
-        await ws.send(msgpack.packb({"type": "Text", "text": " "}, use_bin_type=True))
+        # No primer space frame - padding config in server handles clean onset
         
         # Merge tiny first two chunks if they're too small for good priming
         if len(all_chunks) >= 2 and len(all_chunks[0].split()) < 10:
