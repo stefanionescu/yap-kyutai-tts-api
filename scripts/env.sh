@@ -48,7 +48,7 @@ fi
 
 # Tuning knobs (override as needed)
 # Batching window/size for the TTS module (reduced for better TTFB while maintaining throughput)
-TTS_BATCH_SIZE=16
+TTS_BATCH_SIZE=32
 export TTS_BATCH_SIZE
 # Worker threads inside moshi-server (concurrent synthesis tasks)
 # Match/beat your benchmark concurrency to avoid queueing

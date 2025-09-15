@@ -156,6 +156,19 @@ done
 echo "[03-tts] Bound at ws://${ADDR}:${PORT}"
 echo "[03-tts] Logs: ${LOG_DIR}/tts-server.log"
 
+# Wait for warmup completion message to ensure weights and caches are ready
+echo "[03-tts] Waiting for warmup completion ('ready to roll.')…"
+for i in $(seq 1 120); do
+  if grep -q "ready to roll." "${LOG_DIR}/tts-server.log" 2>/dev/null; then
+    echo "[03-tts] Warmup complete. Server is ready."
+    break
+  fi
+  sleep 1
+  if [ $i -eq 120 ]; then
+    echo "[03-tts] WARNING: Did not see 'ready to roll.' in time; continuing anyway."
+  fi
+done
+
 # Always confirm GPU use at boot - Candle backend logs which device it picked
 echo "[03-tts] GPU/device initialization:"
 sleep 1
