@@ -1,7 +1,10 @@
 # -------- YAP TTS RUNPOD ENV --------
-# Compute ROOT_DIR fallback from this file location if not provided by caller
+# Force ROOT_DIR to be this repo directory (not /workspace or external)
 __ENV_SH_DIR__="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT_DIR="${ROOT_DIR:-${__ENV_SH_DIR__%/scripts}}"
+__REPO_ROOT__="${__ENV_SH_DIR__%/scripts}"
+ROOT_DIR="${__REPO_ROOT__}"
+
+echo "[env] ROOT_DIR forced to repo: ${ROOT_DIR}" >&2
 
 TTS_ADDR=0.0.0.0
 TTS_PORT=8089

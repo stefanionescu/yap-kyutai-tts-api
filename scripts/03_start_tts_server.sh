@@ -36,6 +36,7 @@ mkdir -p "${LOG_DIR}"
 
 echo "[03-tts] Starting moshi TTS server (local build)…"
 echo "[03-tts] Using config: ${CFG}"
+echo "[03-tts] ROOT_DIR: ${ROOT_DIR}"
 
 # Debug: Show voice and tokenizer configuration
 echo "[03-tts] Voice and tokenizer configuration:"
