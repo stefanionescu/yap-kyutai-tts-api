@@ -3,7 +3,7 @@ set -euo pipefail
 source "$(dirname "$0")/env.sh"
 echo "[02-tts] Fetching DSM repo for configs & scripts…"
 
--modeling}"
+DSM_DIR="${DSM_REPO_DIR:-${ROOT_DIR}/.data/delayed-streams-modeling}"
 if [ ! -d "${DSM_DIR}" ]; then
   git clone --depth=1 https://github.com/kyutai-labs/delayed-streams-modeling "${DSM_DIR}"
 else
@@ -12,6 +12,12 @@ fi
 
 # Copy or reuse the reference TTS config; prefer reusing existing
 DEST_CFG="${TTS_CONFIG}"
+LEGACY_CFG="${ROOT_DIR}/.data/server/config-tts-en-hf.toml"
+if [ -f "$LEGACY_CFG" ] && [ ! -f "$DEST_CFG" ]; then
+  echo "[02-tts] Migrating legacy config name: $LEGACY_CFG -> $DEST_CFG"
+  mkdir -p "$(dirname "$DEST_CFG")"
+  mv "$LEGACY_CFG" "$DEST_CFG"
+fi
 mkdir -p "$(dirname "${DEST_CFG}")"
 if [ -f "${DEST_CFG}" ]; then
   echo "[02-tts] Using existing server config (no changes): ${DEST_CFG}"
@@ -28,30 +34,30 @@ sedi() {
   fi
 }
 
-  # Point to the public, smaller English-only model
-  sedi 's#kyutai/tts-1.6b-en_fr#kyutai/tts-0.75b-en-public#g' "${DEST_CFG}" || true
+# Point to the public, smaller English-only model
+sedi 's#kyutai/tts-1.6b-en_fr#kyutai/tts-0.75b-en-public#g' "${DEST_CFG}" || true
 
 # Ensure the top-level tokenizer settings exist (root of TOML, before any [table])
 #  - Use the SentencePiece text tokenizer shipped with 0.75B EN
 #  - Align with model config: text_card=8000, existing_text_padding_id=3
 #  - Standard SPM BOS/EOS ids
-  TEXT_SPM="hf://kyutai/tts-0.75b-en-public/tokenizer_spm_8k_en_fr_audio.model"
-  # Remove any wrong tokenizer.json occurrences anywhere
-  sedi '/tokenizer\.json/d' "${DEST_CFG}"
+TEXT_SPM="hf://kyutai/tts-0.75b-en-public/tokenizer_spm_8k_en_fr_audio.model"
+# Remove any wrong tokenizer.json occurrences anywhere
+sedi '/tokenizer\.json/d' "${DEST_CFG}"
 
 # Find the first table header line to keep our top-level keys truly at root
-  FIRST_HDR_LINE=$(grep -n '^\[' "${DEST_CFG}" | head -n 1 | cut -d: -f1 || true)
-  if [ -n "${FIRST_HDR_LINE:-}" ]; then
-  # Split into head (root) and tail (tables)
-  head -n "$((FIRST_HDR_LINE - 1))" "${DEST_CFG}" \
-    | sed -E \
-        -e '/^text_tokenizer_file\s*=.*/d' \
-        -e '/^text_card\s*=.*/d' \
-        -e '/^existing_text_padding_id\s*=.*/d' \
-        -e '/^text_bos_token\s*=.*/d' \
-        -e '/^text_eos_token\s*=.*/d' \
-    > "${DEST_CFG}.head"
-  cat > "${DEST_CFG}.root_keys" <<EOF
+FIRST_HDR_LINE=$(grep -n '^\[' "${DEST_CFG}" | head -n 1 | cut -d: -f1 || true)
+if [ -n "${FIRST_HDR_LINE:-}" ]; then
+# Split into head (root) and tail (tables)
+head -n "$((FIRST_HDR_LINE - 1))" "${DEST_CFG}" \
+  | sed -E \
+      -e '/^text_tokenizer_file\s*=.*/d' \
+      -e '/^text_card\s*=.*/d' \
+      -e '/^existing_text_padding_id\s*=.*/d' \
+      -e '/^text_bos_token\s*=.*/d' \
+      -e '/^text_eos_token\s*=.*/d' \
+  > "${DEST_CFG}.head"
+cat > "${DEST_CFG}.root_keys" <<EOF
 
 # --- Text tokenizer (Kyutai TTS 0.75B EN) ---
 text_tokenizer_file = "${TEXT_SPM}"
