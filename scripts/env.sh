@@ -58,4 +58,5 @@ TTS_MAX_QUEUE_LEN=${TTS_MAX_QUEUE_LEN:-256}
 # Rayon CPU threads (Candle). Keep low to avoid CPU thrash on GPU runs
 TTS_RAYON_THREADS=${TTS_RAYON_THREADS:-1}
 # Tokio runtime worker threads (increase for high concurrency)
-TTS_TOKIO_THREADS=${TTS_TOKIO_THREADS:-16}
+# Match the target concurrency to avoid queueing during critical first-chunk processing
+TTS_TOKIO_THREADS=${TTS_TOKIO_THREADS:-32}

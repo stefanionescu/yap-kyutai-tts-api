@@ -15,7 +15,8 @@ export MALLOC_ARENA_MAX="${MALLOC_ARENA_MAX:-2}"
 export OMP_NUM_THREADS="${OMP_NUM_THREADS:-1}"
 export MKL_NUM_THREADS="${MKL_NUM_THREADS:-1}"
 # Trace logging is expensive under load; keep it lean in benchmarks
-export RUST_LOG="${RUST_LOG:-info,moshi_server=info,moshi=info,candle_core=info,hyper=warn,axum=info,tokio=info}"
+# For pure benchmarks, drop to warn level to minimize critical path overhead
+export RUST_LOG="${RUST_LOG:-warn,hyper=warn,axum=warn}"
 export RUST_BACKTRACE="${RUST_BACKTRACE:-full}"
 
 # GPU concurrency knobs: avoid stream → connection aliasing at 8 by raising to 32
