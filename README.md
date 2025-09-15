@@ -27,10 +27,10 @@ Edit `scripts/env.sh` to adjust ports and voice.
 
 Notes:
 - Data is stored inside this repo under `.data/` by default (not outside the repo):
-  - Config: `.data/server/config-tts.toml` (override via `TTS_CONFIG`)
-  - Logs: `.data/logs` (override via `TTS_LOG_DIR`)
-  - Voices: `.data/voices` (override via `VOICES_DIR`)
-  - DSM clone: `.data/delayed-streams-modeling` (override via `DSM_REPO_DIR`)
+- Config: `.data/server/config-tts.toml` (override via `TTS_CONFIG`)
+- Logs: `.data/logs` (override via `TTS_LOG_DIR`)
+- Voices: `.data/voices` (override via `VOICES_DIR`)
+- DSM clone: `.data/delayed-streams-modeling` (override via `DSM_REPO_DIR`)
 
 #### Tuning knobs (concurrency, batching, CPU caps)
 - **TTS_BATCH_SIZE**: default `64`. Controls dynamic batching for `/api/tts_streaming`.
