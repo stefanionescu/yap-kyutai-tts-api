@@ -22,28 +22,28 @@ TTS_HF_REPO=${TTS_HF_REPO:-kyutai/tts-1.6b-en_fr}
 # Choose speaker directory (p004 by default)
 TTS_SPEAKER_DIR=${TTS_SPEAKER_DIR:-ears/p004}
 
-# Auto-detect the exact 1.6B speaker embedding file (*.@240.safetensors)
+# Auto-detect the freeform_speech_01.wav file for p004 voice
 _SPK_ABS_DIR="${VOICES_DIR}/${TTS_SPEAKER_DIR}"
-_EMB_FILE=""
+_WAV_FILE=""
 if [ -d "$_SPK_ABS_DIR" ]; then
-  _EMB_FILE="$(
-    find "$_SPK_ABS_DIR" -maxdepth 1 -type f -name "freeform_speech_01.wav.*@240.safetensors" -print -quit
+  _WAV_FILE="$(
+    find "$_SPK_ABS_DIR" -maxdepth 1 -type f -name "freeform_speech_01.wav" -print -quit
   )"
-  if [ -z "$_EMB_FILE" ]; then
-    _EMB_FILE="$(find "$_SPK_ABS_DIR" -maxdepth 1 -type f -name "*@240.safetensors" -print -quit)"
+  if [ -z "$_WAV_FILE" ]; then
+    _WAV_FILE="$(find "$_SPK_ABS_DIR" -maxdepth 1 -type f -name "*.wav" -print -quit)"
   fi
 fi
 
 # Ensure TTS_VOICE is always defined to avoid set -u errors in callers
 TTS_VOICE="${TTS_VOICE:-}"
 
-if [ -n "$_EMB_FILE" ]; then
+if [ -n "$_WAV_FILE" ]; then
   # Store as a path relative to VOICES_DIR (what server config expects)
-  TTS_VOICE="${_EMB_FILE#${VOICES_DIR}/}"
+  TTS_VOICE="${_WAV_FILE#${VOICES_DIR}/}"
   export TTS_VOICE
-  echo "[env] Using speaker embedding: ${TTS_VOICE}" >&2
+  echo "[env] Using voice WAV file: ${TTS_VOICE}" >&2
 else
-  echo "[env] WARNING: No 1.6B speaker embedding found in ${_SPK_ABS_DIR} (*@240.safetensors)" >&2
+  echo "[env] WARNING: No WAV files found in ${_SPK_ABS_DIR} (*.wav)" >&2
 fi
 
 # Tuning knobs (override as needed)
