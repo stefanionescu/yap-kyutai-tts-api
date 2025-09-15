@@ -44,25 +44,29 @@ SCRIPT_DIR="${BASE_DIR}"
 VOICE_ROOT="${VOICES_DIR:-${ROOT_DIR}/.data/voices}"
 DSM_DIR="${DSM_REPO_DIR:-${ROOT_DIR}/.data/delayed-streams-modeling}"
 
-# Remove Python venv and lockfiles/manifests used by uv at repo root
-if [ -d "${ROOT_DIR}/.venv" ]; then
-  echo "[stop] Removing venv: ${ROOT_DIR}/.venv"
-  rm -rf "${ROOT_DIR}/.venv"
-fi
-for f in "${ROOT_DIR}/pyproject.toml" "${ROOT_DIR}/uv.lock"; do
-  [ -f "$f" ] && { echo "[stop] Removing $f"; rm -f "$f"; }
-done
+# Preserve DSM clone, voices, and server config. Only remove ephemeral bits.
 
-# Remove downloaded DSM repo clone
+# Keep venv by default to avoid re-install cost; set PURGE_VENV=1 to remove.
+if [ "${PURGE_VENV:-0}" = "1" ]; then
+  if [ -d "${ROOT_DIR}/.venv" ]; then
+    echo "[stop] Removing venv: ${ROOT_DIR}/.venv"
+    rm -rf "${ROOT_DIR}/.venv"
+  fi
+  for f in "${ROOT_DIR}/pyproject.toml" "${ROOT_DIR}/uv.lock"; do
+    [ -f "$f" ] && { echo "[stop] Removing $f"; rm -f "$f"; }
+  done
+else
+  echo "[stop] Preserving Python environment (.venv)"
+fi
+
+# Preserve DSM repo clone for reuse
 if [ -d "${DSM_DIR}" ]; then
-  echo "[stop] Removing DSM repo dir: ${DSM_DIR}"
-  rm -rf "${DSM_DIR}"
+  echo "[stop] Preserving DSM repo dir: ${DSM_DIR}"
 fi
 
-# Remove downloaded voices
+# Preserve all downloaded voices
 if [ -d "${VOICE_ROOT}" ]; then
-  echo "[stop] Removing voices dir: ${VOICE_ROOT}"
-  rm -rf "${VOICE_ROOT}"
+  echo "[stop] Preserving voices dir: ${VOICE_ROOT}"
 fi
 
 # Remove smoke-test WAV outputs kept inside repo
