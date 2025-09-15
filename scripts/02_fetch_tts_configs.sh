@@ -97,54 +97,96 @@ else
   ' "${DEST_CFG}" > "${DEST_CFG}.tmp" && mv "${DEST_CFG}.tmp" "${DEST_CFG}"
 fi
 
-# Ensure p004 voice files are downloaded first
+# Ensure modules.tts_py.py sub-table exists and set Python-side overrides for 0.75B EN
 VOICE_REL="${TTS_VOICE:-ears/p004/freeform_speech_01.wav}"
 VOICES_DIR="${VOICES_DIR:-${ROOT_DIR}/.data/voices}"
-echo "[02-tts] Downloading p004 voice files..."
-"${ROOT_DIR}/.venv/bin/python" - <<'PY'
-from huggingface_hub import snapshot_download
-import os
-voices_dir = os.environ.get('VOICES_DIR', '.data/voices')
-snapshot_download(
-    "kyutai/tts-voices",
-    local_dir=voices_dir,
-    local_dir_use_symlinks=False,
-    allow_patterns=["ears/p004/*"],
-    resume_download=True,
-)
-print("OK: p004 voice is local")
-PY
-
-# --- Hard override the Python TTS submodule block to force a single speaker ---
-cat >> "${DEST_CFG}" <<'EOF'
+# Use absolute path and pin to p004 embeddings only to avoid random voice selection
+VOICE_FOLDER_PATTERN="${VOICES_DIR}/ears/p004/*.safetensors"
+DEFAULT_VOICE_ABS="${VOICES_DIR}/${VOICE_REL}"
+if ! grep -q "^\[modules.tts_py.py\]" "${DEST_CFG}"; then
+  cat >> "${DEST_CFG}" <<EOF
 
 [modules.tts_py.py]
-# Only load p004 embeddings from local disk (no HF random sampling)
-voice_folder = "${VOICES_DIR}/ears/p004/*.safetensors"
-default_voice = "ears/p004/freeform_speech_01.wav"
-
-# sensible low-latency defaults; we'll tune below
+# Python module overrides for tts.py
 n_q = 16
-interleaved_text_only = 2
+voice_folder = "${VOICE_FOLDER_PATTERN}"
+default_voice = "${DEFAULT_VOICE_ABS}"
+# Quality-first for the first ~200 ms, still low latency
+interleaved_text_only = 0
 initial_padding = 3
 final_padding = 2
 max_padding = 4
 padding_between = 1
-padding_bonus = 1.0
-cfg_coef = 1.2
+padding_bonus = 0.5
+cfg_coef = 1.1
 EOF
+else
+  awk -v voice_folder="${VOICE_FOLDER_PATTERN}" -v default_voice="${DEFAULT_VOICE_ABS}" '
+    BEGIN{inblk=0}
+    /^\[modules\.tts_py\.py\]/{inblk=1}
+    /^\[/{if(inblk){inblk=0}}
+    {
+      if(inblk && $1 ~ /^n_q/){$0="n_q = 16"}
+      if(inblk && $1 ~ /^voice_folder/){$0="voice_folder = \"" voice_folder "\""}
+      if(inblk && $1 ~ /^default_voice/){$0="default_voice = \"" default_voice "\""}
+      if(inblk && $1 ~ /^cfg_coef/){$0="cfg_coef = 1.1"}
+      if(inblk && $1 ~ /^padding_between/){$0="padding_between = 1"}
+      if(inblk && $1 ~ /^interleaved_text_only/){$0="interleaved_text_only = 0"}
+      if(inblk && $1 ~ /^initial_padding/){$0="initial_padding = 3"}
+      if(inblk && $1 ~ /^final_padding/){$0="final_padding = 2"}
+      if(inblk && $1 ~ /^max_padding/){$0="max_padding = 4"}
+      if(inblk && $1 ~ /^padding_bonus/){$0="padding_bonus = 0.5"}
+      print
+    }
+  ' "${DEST_CFG}" > "${DEST_CFG}.tmp" && mv "${DEST_CFG}.tmp" "${DEST_CFG}"
+fi
 
 echo "[02-tts] Wrote ${DEST_CFG}"
 
-# Add verification script to check config took effect
-cat >> "${DEST_CFG}" <<'VERIFY'
+# Download voice WAV and embedding (.safetensors) for consistent voice quality
+VOICES_DIR="${VOICES_DIR:-${ROOT_DIR}/.data/voices}"
+VOICE_DST="${VOICES_DIR}/${VOICE_REL}"
+VOICE_DIR="$(dirname "${VOICE_DST}")"
+mkdir -p "${VOICE_DIR}"
 
-# --- End of config ---
-# To verify this config is loaded, check server logs for:
-# voice_folder = <your>/.data/voices/ears/p004/*.safetensors
-# default_voice = ears/p004/freeform_speech_01.wav
-VERIFY
-
-echo "[02-tts] Configuration complete. After starting the server, verify with:"
-echo "  grep -nE 'voice_folder|default_voice' \"\${TTS_CONFIG}\""
-echo "  grep -nE 'loading voices|default voice' \"\${TTS_LOG_DIR}/tts-server.log\""
+# Download the complete p004 voice folder (WAV + embedding) using Python
+if [ ! -f "${VOICE_DST}" ] || [ ! -f "${VOICE_DIR}"/*.safetensors ]; then
+  echo "[02-tts] Downloading voice files (WAV + embedding) for: ${VOICE_REL}"
+  "${ROOT_DIR}/.venv/bin/python" - <<'PY'
+import sys
+import os
+from pathlib import Path
+try:
+    from huggingface_hub import snapshot_download
+    voices_dir = os.environ.get('VOICES_DIR', '.data/voices')
+    print(f"Downloading p004 voice to {voices_dir}")
+    snapshot_download(
+        "kyutai/tts-voices",
+        local_dir=voices_dir,
+        local_dir_use_symlinks=False,
+        allow_patterns=["ears/p004/*"],
+        resume_download=True,
+    )
+    print("Downloaded p004 voice files (WAV + embedding)")
+except ImportError:
+    print("WARNING: huggingface_hub not available, falling back to WAV-only download")
+    sys.exit(1)
+except Exception as e:
+    print(f"WARNING: Failed to download voice files: {e}")
+    sys.exit(1)
+PY
+  
+  # Fallback to WAV-only if Python download failed
+  if [ $? -ne 0 ] && [ ! -f "${VOICE_DST}" ]; then
+    echo "[02-tts] Falling back to WAV-only download: ${VOICE_REL}"
+    URL="https://huggingface.co/kyutai/tts-voices/resolve/main/${VOICE_REL}"
+    if curl -fL -o "${VOICE_DST}.tmp" "${URL}" 2>/dev/null || wget -q -O "${VOICE_DST}.tmp" "${URL}"; then
+      mv "${VOICE_DST}.tmp" "${VOICE_DST}"
+      echo "[02-tts] Saved voice WAV to ${VOICE_DST}"
+    else
+      echo "[02-tts] WARNING: Could not download voice WAV: ${VOICE_REL}"
+    fi
+  fi
+else
+  echo "[02-tts] Voice files already exist: ${VOICE_DST}"
+fi
