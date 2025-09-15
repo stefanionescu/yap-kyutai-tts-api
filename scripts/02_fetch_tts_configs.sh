@@ -53,7 +53,8 @@ text_bos_token = 1
 
 [modules.tts_py.py]
 # Python module overrides for tts.py (1.6B with embeddings)
-hf_repo = "kyutai/tts-1.6b-en_fr"
+hf_repo = "${TTS_HF_REPO}"
+n_q = 32
 voice_folder = "${VOICE_FOLDER_PATTERN}"
 default_voice = "${VOICE_REL_BASE}"
 
