@@ -24,6 +24,7 @@ TTS_SPEAKER_DIR=${TTS_SPEAKER_DIR:-ears/p004}
 
 # Auto-detect the exact 1.6B speaker embedding file (*.@240.safetensors)
 _SPK_ABS_DIR="${VOICES_DIR}/${TTS_SPEAKER_DIR}"
+_EMB_FILE=""
 if [ -d "$_SPK_ABS_DIR" ]; then
   _EMB_FILE="$(
     find "$_SPK_ABS_DIR" -maxdepth 1 -type f -name "freeform_speech_01.wav.*@240.safetensors" -print -quit
@@ -32,6 +33,9 @@ if [ -d "$_SPK_ABS_DIR" ]; then
     _EMB_FILE="$(find "$_SPK_ABS_DIR" -maxdepth 1 -type f -name "*@240.safetensors" -print -quit)"
   fi
 fi
+
+# Ensure TTS_VOICE is always defined to avoid set -u errors in callers
+TTS_VOICE="${TTS_VOICE:-}"
 
 if [ -n "$_EMB_FILE" ]; then
   # Store as a path relative to VOICES_DIR (what server config expects)
