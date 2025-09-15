@@ -2,6 +2,9 @@
 set -euo pipefail
 source "$(dirname "$0")/env.sh"
 echo "[02-tts] Fetching DSM repo for configs & scripts…"
+echo "[02-tts] ROOT_DIR: ${ROOT_DIR}"
+echo "[02-tts] VOICES_DIR: ${VOICES_DIR}"
+echo "[02-tts] TTS_CONFIG: ${TTS_CONFIG}"
 
 DSM_DIR="${DSM_REPO_DIR:-${ROOT_DIR}/.data/delayed-streams-modeling}"
 if [ ! -d "${DSM_DIR}" ]; then

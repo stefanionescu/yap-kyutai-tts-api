@@ -12,8 +12,8 @@ Do not run these scripts locally; they are intended for RunPod pods with a CUDA 
 - **Installer** for the Rust server and Python shim: `scripts/01_install_tts_server.sh`
 - **Config fetch & pin** to 0.75B EN and voice download: `scripts/02_fetch_tts_configs.sh`
 - **Server launcher** (tmux + health wait): `scripts/03_start_tts_server.sh`
-- **Smoke test** using DSM client (mandatory): `scripts/04_tts_smoke_test.sh`
-- **Test dependencies setup** with proper pip venv: `scripts/05_setup_test_deps.sh`
+- **Smoke test** using DSM client (mandatory): `scripts/05_tts_smoke_test.sh`
+- **Test dependencies setup** with proper pip venv: `scripts/04_setup_test_deps.sh`
 - **Orchestrator**: `scripts/main.sh`
 - **Cleanup**: `scripts/stop.sh`
 
@@ -26,8 +26,8 @@ Do not run these scripts locally; they are intended for RunPod pods with a CUDA 
 Edit `scripts/env.sh` to adjust ports and voice.
 
 Notes:
-- Data is stored inside this repo under `.data/` by default:
-  - Config: `.data/server/config-tts-en-hf.toml` (override via `TTS_CONFIG`)
+- Data is stored inside this repo under `.data/` by default (not outside the repo):
+  - Config: `.data/server/config-tts.toml` (override via `TTS_CONFIG`)
   - Logs: `.data/logs` (override via `TTS_LOG_DIR`)
   - Voices: `.data/voices` (override via `VOICES_DIR`)
   - DSM clone: `.data/delayed-streams-modeling` (override via `DSM_REPO_DIR`)
@@ -44,16 +44,22 @@ Notes:
 These are applied automatically by `scripts/02_fetch_tts_configs.sh` (for config keys) and `scripts/03_start_tts_server.sh` (for env vars).
 
 ### Install, start, and smoke test
-Run on the pod:
+Authenticate with Hugging Face (to avoid 401/429) then run on the pod:
 
 ```bash
+# 0) One-time before any scripts: set your HF token (prevents 401/429)
+export HF_TOKEN=<your-hf-token>
+# Optional: reduce parallelism and disable xet to avoid throttling bursts
+export HF_HUB_DISABLE_XET=1
+export HF_HUB_ENABLE_HF_TRANSFER=0
+
 bash scripts/main.sh
 ```
 
 What it does:
 - Creates a `.venv` at repo root and installs pinned Python deps using `uv`
 - Installs a pinned `moshi-server` version with CUDA support (`0.6.3` by default)
-- Clones DSM and writes `.data/server/config-tts-en-hf.toml` with the model set to `kyutai/tts-0.75b-en-public`, and enforces Mimi `n_q = 16`
+- Clones DSM and writes `.data/server/config-tts.toml` with the model set to `kyutai/tts-0.75b-en-public`, and enforces Mimi `n_q = 16`
 - Starts the Rust server via `uv run --frozen moshi-server worker --config ... --addr ... --port ...` (tmux if available, else nohup)
 - Waits until the port is open
 - Runs `scripts/04_tts_smoke_test.sh` to synthesize to a WAV file at `.data/out.wav` (no playback on server)
@@ -139,11 +145,14 @@ bash scripts/stop.sh
 PURGE_LOGS=1 bash scripts/stop.sh
 ```
 
-Removed by `stop.sh`:
-- `.venv`, `pyproject.toml`, `uv.lock`
-- DSM clone at `${DSM_REPO_DIR:-<repo>/.data/delayed-streams-modeling}`
-- Voices directory `${VOICES_DIR:-<repo>/.data/voices}`
+Removed by `stop.sh` (safe cleanup):
+- `.venv`, `pyproject.toml`, `uv.lock` (unless `PURGE_VENV=0`)
 - Common caches: Hugging Face, Torch, uv, Cargo registry/git
+
+Preserved by default (so re-runs don’t re-download):
+- Server config at `${TTS_CONFIG:-<repo>/.data/server/config-tts.toml}`
+- DSM clone at `${DSM_REPO_DIR:-<repo>/.data/delayed-streams-modeling}`
+- Voices at `${VOICES_DIR:-<repo>/.data/voices}`
 
 Preserved:
 - This Git repo (working tree)
