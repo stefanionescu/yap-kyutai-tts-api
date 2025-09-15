@@ -20,7 +20,7 @@ mkdir -p "$(dirname "${DEST_CFG}")"
 # Portable in-place sed (macOS/BSD and GNU)
 TEXT_SPM="hf://kyutai/tts-0.75b-en-public/tokenizer_spm_8k_en_fr_audio.model"
 VOICE_REL="${TTS_VOICE:-ears/p004/freeform_speech_01.wav}"
-VOICE_FOLDER_PATTERN="${VOICES_DIR}/**/*.safetensors"
+VOICE_FOLDER_PATTERN="${VOICES_DIR}"
 BS_VAL="${TTS_BATCH_SIZE:-32}"
 
 echo "[02-tts] Writing minimal server config to ${DEST_CFG}"
