@@ -35,7 +35,36 @@ sedi() {
 }
 
 if [ -f "${DEST_CFG}" ]; then
-  echo "[02-tts] Using existing server config (no changes): ${DEST_CFG}"
+  echo "[02-tts] Updating existing server config: ${DEST_CFG}"
+  # Always update the voice settings even if config exists
+  VOICE_REL="${TTS_VOICE:-ears/p004/freeform_speech_01.wav}"
+  VOICES_DIR="${VOICES_DIR:-${ROOT_DIR}/.data/voices}"
+  VOICE_FOLDER_PATTERN="${VOICES_DIR}/**/*.safetensors"
+  DEFAULT_VOICE_KEY="${VOICE_REL}"
+  
+  # Force update the Python module settings
+  awk -v voice_folder="${VOICE_FOLDER_PATTERN}" -v default_voice="${DEFAULT_VOICE_KEY}" '
+    BEGIN{inblk=0}
+    /^\[modules\.tts_py\.py\]/{print; inblk=1; next}
+    /^\[/ { if(inblk){inblk=0} }
+    {
+      if(inblk){
+        if($1 ~ /^voice_folder/){ $0="voice_folder = \"" voice_folder "\"" }
+        else if($1 ~ /^default_voice/){ $0="default_voice = \"" default_voice "\"" }
+        else if($1 ~ /^n_q/){ $0="n_q = 16" }
+        else if($1 ~ /^hf_repo/){ $0="hf_repo = \"kyutai/tts-0.75b-en-public\"" }
+        else if($1 ~ /^(cfg_coef|padding_between|interleaved_text_only|initial_padding|final_padding|max_padding|padding_bonus|cfg_is_no_text)/){next}
+      }
+      print
+    }
+  ' "${DEST_CFG}" > "${DEST_CFG}.tmp" && mv "${DEST_CFG}.tmp" "${DEST_CFG}"
+  
+  # Add hf_repo if missing
+  if ! grep -q "hf_repo" "${DEST_CFG}"; then
+    sed -i '/^\[modules\.tts_py\.py\]/a hf_repo = "kyutai/tts-0.75b-en-public"' "${DEST_CFG}"
+  fi
+  
+  echo "[02-tts] Updated ${DEST_CFG}"
 else
   echo "[02-tts] Creating new server config: ${DEST_CFG}"
   cp -f "${DSM_DIR}/configs/config-tts.toml" "${DEST_CFG}"

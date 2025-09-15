@@ -55,33 +55,13 @@ for f in "${ROOT_DIR}/pyproject.toml" "${ROOT_DIR}/uv.lock"; do
   [ -f "$f" ] && { echo "[stop] Removing $f"; rm -f "$f"; }
 done
 
-# Preserve DSM repo clone for reuse
-if [ -d "${DSM_DIR}" ]; then
-  echo "[stop] Preserving DSM repo dir: ${DSM_DIR}"
+# Remove entire .data directory (voices, config, DSM, logs, everything)
+if [ -d "${ROOT_DIR}/.data" ]; then
+  echo "[stop] Removing entire .data directory: ${ROOT_DIR}/.data"
+  rm -rf "${ROOT_DIR}/.data"
 fi
 
-# Preserve all downloaded voices
-if [ -d "${VOICE_ROOT}" ]; then
-  echo "[stop] Preserving voices dir: ${VOICE_ROOT}"
-fi
-
-# Remove smoke-test WAV outputs kept inside repo
-TEST_WAV="${ROOT_DIR}/.data/out.wav"
-if [ -f "${TEST_WAV}" ]; then
-  echo "[stop] Removing smoke-test WAV: ${TEST_WAV}"
-  rm -f "${TEST_WAV}"
-fi
-# Also remove any other top-level WAVs in .data (keeps voices under .data/voices)
-if ls "${ROOT_DIR}/.data/"*.wav >/dev/null 2>&1; then
-  echo "[stop] Removing top-level WAVs in ${ROOT_DIR}/.data"
-  rm -f "${ROOT_DIR}/.data/"*.wav || true
-fi
-
-# Remove warmup outputs directory if present
-if [ -d "${ROOT_DIR}/.data/warmup" ]; then
-  echo "[stop] Removing warmup directory: ${ROOT_DIR}/.data/warmup"
-  rm -rf "${ROOT_DIR}/.data/warmup"
-fi
+# .data directory already removed above, so these are redundant now
 
 # Clear Hugging Face caches and common caches
 # Include variations for HF_HOME and XDG paths
