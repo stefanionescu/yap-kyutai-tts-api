@@ -48,13 +48,13 @@ fi
 
 # Tuning knobs (override as needed)
 # Batching window/size for the TTS module (reduced for better TTFB while maintaining throughput)
-TTS_BATCH_SIZE=32
+TTS_BATCH_SIZE=16
 export TTS_BATCH_SIZE
 # Worker threads inside moshi-server (concurrent synthesis tasks)
 # Match/beat your benchmark concurrency to avoid queueing
-TTS_NUM_WORKERS=${TTS_NUM_WORKERS:-32}
+TTS_NUM_WORKERS=${TTS_NUM_WORKERS:-16}
 # Optional server-side request queue length (if supported by your moshi build)
-TTS_MAX_QUEUE_LEN=${TTS_MAX_QUEUE_LEN:-256}
+TTS_MAX_QUEUE_LEN=${TTS_MAX_QUEUE_LEN:-128}
 # Rayon CPU threads (Candle). Keep low to avoid CPU thrash on GPU runs
 TTS_RAYON_THREADS=${TTS_RAYON_THREADS:-1}
 # Tokio runtime worker threads (optimized for L40S with reduced context-switch noise)
