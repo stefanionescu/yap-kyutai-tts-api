@@ -42,7 +42,7 @@ def _ws_url(server: str, voice_path: Optional[str]) -> str:
     if voice_path:
         qp.append(f"voice={quote(voice_path)}")
     qp.append("format=PcmMessagePack")
-    qp.append("max_seq_len=128")
+    # Let server use default seq_len instead of constraining to 128
     qp.append("temp=0.2")
     qp.append("seed=42")
     return f"{base}/api/tts_streaming?{'&'.join(qp)}"
@@ -110,6 +110,8 @@ async def _tts_one(
     pcm_chunks: List[np.ndarray] = []  # accumulate as int16 chunks
     # 1.6B uses speaker embeddings; no prefix trimming needed
     prefix_samples_to_drop = 0
+    # Sample rate verification to rule out SR mismatch
+    sr_seen = set()
 
     async with connect(url, **ws_options) as ws:  # type: ignore
         # True full-duplex: concurrent reader/sender for optimal TTFB
@@ -141,6 +143,7 @@ async def _tts_one(
                             if time_to_first_audio_server is None and t0_server_holder["t0"] is not None:
                                 time_to_first_audio_server = time.perf_counter() - t0_server_holder["t0"]
                             sample_rate = sr
+                            sr_seen.add(sr)  # Track sample rates for verification
                             pcm_chunks.append(pcm_i16)
                     elif kind in ("End", "Final", "Done", "Marker"):
                         break
@@ -175,6 +178,10 @@ async def _tts_one(
         pcm_int16 = np.concatenate(pcm_chunks, dtype=np.int16)
         _write_wav_int16(out_path, pcm_int16, sample_rate)
         audio_s = len(pcm_int16) / float(sample_rate)
+        
+        # Verify sample rate consistency
+        if len(sr_seen) != 1:
+            print(f"WARNING: Mixed sample rates in stream {out_path.name}: {sr_seen}")
     else:
         audio_s = 0.0
 

@@ -55,7 +55,7 @@ def _ws_url(server: str, voice_path: Optional[str]) -> str:
         base = f"ws://{server.strip().rstrip('/')}"
     qp: List[str] = [
         "format=PcmMessagePack",
-        "max_seq_len=128",
+        # Let server use default seq_len instead of constraining to 128
         "temp=0.2",
         "seed=42",
     ]
@@ -173,6 +173,8 @@ async def tts_client(
 
     pcm_chunks: List[np.ndarray] = []
     sample_rate = 24000
+    # Sample rate verification to rule out SR mismatch  
+    sr_seen = set()
 
     async with connect(url, **ws_options) as ws:  # type: ignore
         connect_ms = (time.perf_counter() - connect_start) * 1000.0
@@ -237,6 +239,7 @@ async def tts_client(
                         time_to_first_audio_e2e = time.perf_counter() - t0_e2e
                     if time_to_first_audio_server is None and t0_server_holder["t0"] is not None:
                         time_to_first_audio_server = time.perf_counter() - t0_server_holder["t0"]
+                    sr_seen.add(sample_rate)  # Track sample rates for verification
                     pcm_chunks.append(pcm_i16)
                 return False
             elif kind in ("End", "Final", "Done", "Marker"):
@@ -298,6 +301,10 @@ async def tts_client(
             wf.setframerate(sample_rate)
             wf.writeframes(pcm_int16.tobytes())
         audio_s = len(pcm_int16) / float(sample_rate)
+        
+        # Verify sample rate consistency
+        if len(sr_seen) != 1:
+            print(f"WARNING: Mixed sample rates in stream {out_path.name}: {sr_seen}")
     else:
         audio_s = 0.0
 

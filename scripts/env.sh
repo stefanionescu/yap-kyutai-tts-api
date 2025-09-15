@@ -47,8 +47,8 @@ else
 fi
 
 # Tuning knobs (override as needed)
-# Batching window/size for the TTS module (optimal for L40S with 16 concurrent streams)
-TTS_BATCH_SIZE=32
+# Batching window/size for the TTS module (reduced for better TTFB while maintaining throughput)
+TTS_BATCH_SIZE=16
 export TTS_BATCH_SIZE
 # Worker threads inside moshi-server (concurrent synthesis tasks)
 # Match/beat your benchmark concurrency to avoid queueing
