@@ -50,11 +50,14 @@ def _ws_url(server: str, voice_path: Optional[str]) -> str:
     qp: List[str] = [
         "format=PcmMessagePack",
         "max_seq_len=768",
+        "temp=0",
+        "cfg_coef=1.2",
+        "seed=42",
     ]
-    if voice_path:
-        from urllib.parse import quote
-
-        qp.append(f"voice={quote(voice_path)}")
+    # Temporarily comment out voice parameter for debugging
+    # if voice_path:
+    #     from urllib.parse import quote
+    #     qp.append(f"voice={quote(voice_path)}")
     return f"{base}/api/tts_streaming?{'&'.join(qp)}"
 
 
@@ -159,6 +162,9 @@ async def tts_client(
 
     pcm_chunks: List[np.ndarray] = []
     sample_rate = 24000
+    prefix_samples_to_drop = 0
+    # Heuristic fallback: trim 300 ms if we can't learn the exact prefix
+    DEFAULT_TRIM_MS = 300
 
     async with connect(url, **ws_options) as ws:  # type: ignore
         connect_ms = (time.perf_counter() - connect_start) * 1000.0
@@ -169,10 +175,27 @@ async def tts_client(
             hs_start = time.perf_counter()
             raw = await asyncio.wait_for(ws.recv(), timeout=0.3)
             handshake_ms = (time.perf_counter() - hs_start) * 1000.0
+            # Some servers send a metadata/ready frame first – try to extract a prefix hint
+            if isinstance(raw, (bytes, bytearray)):
+                try:
+                    meta = msgpack.unpackb(raw, raw=False)
+                    pf = meta.get("prefix_samples") or meta.get("prefix_ms")
+                    if isinstance(pf, int):
+                        prefix_samples_to_drop = max(0, pf)
+                    elif isinstance(pf, float):
+                        prefix_samples_to_drop = int(sample_rate * (pf / 1000.0))
+                    else:
+                        prefix_samples_to_drop = int(sample_rate * (DEFAULT_TRIM_MS / 1000.0))
+                except:
+                    # If metadata parsing fails, use default trim
+                    prefix_samples_to_drop = int(sample_rate * (DEFAULT_TRIM_MS / 1000.0))
+            else:
+                prefix_samples_to_drop = int(sample_rate * (DEFAULT_TRIM_MS / 1000.0))
             first_frame = raw if isinstance(raw, (bytes, bytearray)) else None
         except asyncio.TimeoutError:
             handshake_ms = 0.0
             first_frame = None
+            prefix_samples_to_drop = int(sample_rate * (DEFAULT_TRIM_MS / 1000.0))
 
         # Send text in ~12-token chunks with proper spacing, then Eos
         def create_chunks(text: str, target_tokens_per_chunk: int = 12) -> List[str]:
@@ -205,8 +228,8 @@ async def tts_client(
             all_chunks = [" ".join(all_chunks[:2])] + all_chunks[2:]
         
         for i, chunk in enumerate(all_chunks):
-            # Add leading space to every chunk, including the first, to keep SPM segmentation consistent
-            fragment = (" " + chunk)
+            # Add leading space to subsequent chunks only (not the first)
+            fragment = ((" " + chunk) if i > 0 else chunk)
             await ws.send(msgpack.packb({"type": "Text", "text": fragment}, use_bin_type=True))
         await ws.send(msgpack.packb({"type": "Eos"}, use_bin_type=True))
 
@@ -231,6 +254,15 @@ async def tts_client(
                 else:
                     pcm_i16 = arr.astype(np.int16, copy=False)
                 if pcm_i16.size > 0:
+                    # Drop voice prefix samples once at stream start
+                    nonlocal prefix_samples_to_drop
+                    if prefix_samples_to_drop > 0:
+                        if pcm_i16.size <= prefix_samples_to_drop:
+                            prefix_samples_to_drop -= pcm_i16.size
+                            return False
+                        else:
+                            pcm_i16 = pcm_i16[prefix_samples_to_drop:]
+                            prefix_samples_to_drop = 0
                     if first_audio_time is None:
                         first_audio_time = time.perf_counter() - t0
                     pcm_chunks.append(pcm_i16)

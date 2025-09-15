@@ -39,11 +39,16 @@ def _ws_url(server: str, voice_path: Optional[str]) -> str:
     else:
         base = f"ws://{server.strip().rstrip('/')}"
     qp = []
-    if voice_path:
-        qp.append(f"voice={quote(voice_path)}")
+    # Temporarily comment out voice parameter for debugging
+    # if voice_path:
+    #     qp.append(f"voice={quote(voice_path)}")
     qp.append("format=PcmMessagePack")
     # Optional: reduce KV cache to limit VRAM usage under high concurrency
     qp.append("max_seq_len=768")
+    # Deterministic sampling parameters for consistent voice generation
+    qp.append("temp=0")
+    qp.append("cfg_coef=1.2")
+    qp.append("seed=42")
     return f"{base}/api/tts_streaming?{'&'.join(qp)}"
 
 
@@ -102,6 +107,10 @@ async def _tts_one(
     time_to_first_audio: Optional[float] = None
     sample_rate = 24000  # fallback if not provided by server
     pcm_chunks: List[np.ndarray] = []  # accumulate as int16 chunks
+    prefix_samples_to_drop = 0
+    # Heuristic fallback: trim 300 ms if we can't learn the exact prefix
+    DEFAULT_TRIM_MS = 300
+    prefix_samples_to_drop = int(sample_rate * (DEFAULT_TRIM_MS / 1000.0))
 
     async with connect(url, **ws_options) as ws:  # type: ignore
         # Kyutai-style streaming: send text in ~12-token chunks with proper spacing, then Eos to trigger synthesis
@@ -123,8 +132,7 @@ async def _tts_one(
             
             return chunks
         
-        # Send a primer space frame first to ensure clean tokenizer context
-        await ws.send(msgpack.packb({"type": "Text", "text": " "}, use_bin_type=True))
+        # No primer space frame - padding config in server handles clean onset
         
         chunks = create_chunks(text)
         # Merge tiny first two chunks if they're too small for good priming
@@ -132,8 +140,8 @@ async def _tts_one(
             chunks = [" ".join(chunks[:2])] + chunks[2:]
         
         for i, chunk in enumerate(chunks):
-            # Add leading space to every chunk, including the first, for consistent SPM segmentation
-            fragment = (" " + chunk)
+            # Add leading space to subsequent chunks only (not the first)
+            fragment = ((" " + chunk) if i > 0 else chunk)
             await ws.send(msgpack.packb({"type": "Text", "text": fragment}, use_bin_type=True))
         await ws.send(msgpack.packb({"type": "Eos"}, use_bin_type=True))
 
@@ -146,6 +154,15 @@ async def _tts_one(
             if kind in ("Audio", "Pcm", "AudioPcm", "AudioChunk", "AudioF32", "AudioI16"):
                 pcm_i16, sr = _extract_pcm(data)
                 if pcm_i16.size > 0:
+                    # Drop voice prefix samples once at stream start
+                    nonlocal prefix_samples_to_drop
+                    if prefix_samples_to_drop > 0:
+                        if pcm_i16.size <= prefix_samples_to_drop:
+                            prefix_samples_to_drop -= pcm_i16.size
+                            continue
+                        else:
+                            pcm_i16 = pcm_i16[prefix_samples_to_drop:]
+                            prefix_samples_to_drop = 0
                     if time_to_first_audio is None:
                         time_to_first_audio = time.perf_counter() - t0
                     sample_rate = sr
