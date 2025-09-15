@@ -21,6 +21,9 @@ echo "[main] Starting TTS provisioning and server startup"
 bash "${BASE_DIR}/01_install_tts_server.sh"
 bash "${BASE_DIR}/02_fetch_tts_configs.sh"
 
+echo "[main] Verifying TTS configuration"
+bash "${BASE_DIR}/06_verify_config.sh"
+
 bash "${BASE_DIR}/03_start_tts_server.sh"
 
 echo "[main] Setting up test dependencies"
