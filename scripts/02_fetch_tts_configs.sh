@@ -58,16 +58,14 @@ n_q = 32
 voice_folder = "${VOICE_FOLDER_PATTERN}"
 default_voice = "${VOICE_REL_BASE}"
 
-# Light onset padding is fine; 1.6B doesn't need audio prefix trimming
 interleaved_text_only = 0
-initial_padding = 2
-final_padding = 2
-max_padding = 4
+# Keep these low for faster onset; raise if you hear clicks
+initial_padding = 1
+final_padding = 1
+max_padding = 3
 
-# Decoding knobs (1.6B: **no CFG**); keep temp/seed for reproducibility
 temp = 0.2
 seed = 42
-# cfg_coef is ignored by 1.6B (no CFG)
 EOF
 
 echo "[02-tts] Wrote ${DEST_CFG}"

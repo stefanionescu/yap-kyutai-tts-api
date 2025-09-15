@@ -99,8 +99,12 @@ async def _tts_one(
         # NOTE: v15 dropped the old "compression" kwarg; use "extensions" if needed.
     }
 
-    t0 = time.perf_counter()
-    time_to_first_audio: Optional[float] = None
+    # We'll measure both:
+    # 1) end-to-end TTFB (includes WS connect) -> ttfb_e2e_s
+    # 2) server TTFB (post-connect, post-send) -> ttfb_server_s (matches Kyutai's claim)
+    t0_e2e = time.perf_counter()
+    time_to_first_audio_e2e: Optional[float] = None
+    time_to_first_audio_server: Optional[float] = None
     sample_rate = 24000  # fallback if not provided by server
     pcm_chunks: List[np.ndarray] = []  # accumulate as int16 chunks
     # 1.6B uses speaker embeddings; no prefix trimming needed
@@ -133,10 +137,14 @@ async def _tts_one(
         if len(chunks) >= 2 and len(chunks[0].split()) < 10:
             chunks = [" ".join(chunks[:2])] + chunks[2:]
         
+        t0_server: Optional[float] = None
         for i, chunk in enumerate(chunks):
             # Add leading space to subsequent chunks only (not the first)
             fragment = ((" " + chunk) if i > 0 else chunk)
             await ws.send(msgpack.packb({"type": "Text", "text": fragment}, use_bin_type=True))
+            # Start server TTFB timing when we send the FIRST text chunk
+            if t0_server is None:
+                t0_server = time.perf_counter()
         await ws.send(msgpack.packb({"type": "Eos"}, use_bin_type=True))
 
         async for raw in ws:  # server sends binary msgpack frames
@@ -155,8 +163,10 @@ async def _tts_one(
                             continue
                         pcm_i16 = pcm_i16[prefix_samples_to_drop:]
                         prefix_samples_to_drop = 0
-                    if time_to_first_audio is None:
-                        time_to_first_audio = time.perf_counter() - t0
+                    if time_to_first_audio_e2e is None:
+                        time_to_first_audio_e2e = time.perf_counter() - t0_e2e
+                    if time_to_first_audio_server is None and t0_server is not None:
+                        time_to_first_audio_server = time.perf_counter() - t0_server
                     sample_rate = sr
                     pcm_chunks.append(pcm_i16)
 
@@ -169,7 +179,7 @@ async def _tts_one(
                 # Ignore other server messages
                 continue
 
-    wall_s = time.perf_counter() - t0
+    wall_s = time.perf_counter() - t0_e2e
 
     # Write WAV and compute audio seconds
     if pcm_chunks:
@@ -185,7 +195,8 @@ async def _tts_one(
     return {
         "wall_s": float(wall_s),
         "audio_s": float(audio_s),
-        "ttfb_s": float(time_to_first_audio or 0.0),
+        "ttfb_e2e_s": float(time_to_first_audio_e2e or 0.0),
+        "ttfb_server_s": float(time_to_first_audio_server or 0.0),
         "rtf": float(rtf),
         "xrt": float(xrt),
         "throughput_min_per_min": float(xrt),
@@ -205,13 +216,16 @@ def _summarize(title: str, results: List[Dict[str, float]]) -> None:
     audio = [r.get("audio_s", 0.0) for r in results]
     rtf = [r.get("rtf", 0.0) for r in results]
     xrt = [r.get("xrt", 0.0) for r in results]
-    ttfb_vals = [r.get("ttfb_s", 0.0) for r in results if r.get("ttfb_s", 0.0) > 0]
+    ttfb_e2e = [r.get("ttfb_e2e_s", 0.0) for r in results if r.get("ttfb_e2e_s", 0.0) > 0]
+    ttfb_srv = [r.get("ttfb_server_s", 0.0) for r in results if r.get("ttfb_server_s", 0.0) > 0]
 
     print(f"\n== {title} ==")
     print(f"n={len(results)}")
     print(f"Wall s      | avg={stats.mean(wall):.4f}  p50={stats.median(wall):.4f}  p95={p(wall,0.95):.4f}")
-    if ttfb_vals:
-        print(f"TTFB s      | avg={stats.mean(ttfb_vals):.4f}  p50={stats.median(ttfb_vals):.4f}  p95={p(ttfb_vals,0.95):.4f}")
+    if ttfb_e2e:
+        print(f"TTFB (e2e)  | avg={stats.mean(ttfb_e2e):.4f}  p50={stats.median(ttfb_e2e):.4f}  p95={p(ttfb_e2e,0.95):.4f}")
+    if ttfb_srv:
+        print(f"TTFB (srv)  | avg={stats.mean(ttfb_srv):.4f}  p50={stats.median(ttfb_srv):.4f}  p95={p(ttfb_srv,0.95):.4f}")
     print(f"Audio s     | avg={stats.mean(audio):.4f}")
     print(f"RTF         | avg={stats.mean(rtf):.4f}  p50={stats.median(rtf):.4f}  p95={p(rtf,0.95):.4f}")
     print(f"xRT         | avg={stats.mean(xrt):.4f}")

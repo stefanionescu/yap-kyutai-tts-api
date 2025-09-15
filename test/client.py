@@ -158,10 +158,13 @@ async def tts_client(
     # 1.6B uses speaker **embeddings**; no audio prefix trimming needed.
     prefix_samples_to_drop = 0
 
-    # Metrics
+    # Metrics - we'll measure both:
+    # 1) end-to-end TTFB (includes WS connect) -> ttfb_e2e_s
+    # 2) server TTFB (post-connect, post-send) -> ttfb_server_s (matches Kyutai's claim)
     connect_start = time.perf_counter()
-    t0 = connect_start
-    first_audio_time: Optional[float] = None
+    t0_e2e = connect_start
+    time_to_first_audio_e2e: Optional[float] = None
+    time_to_first_audio_server: Optional[float] = None
     final_time: Optional[float] = None
     handshake_ms: float = 0.0
 
@@ -227,15 +230,19 @@ async def tts_client(
         if len(all_chunks) >= 2 and len(all_chunks[0].split()) < 10:
             all_chunks = [" ".join(all_chunks[:2])] + all_chunks[2:]
         
+        t0_server: Optional[float] = None
         for i, chunk in enumerate(all_chunks):
             # Add leading space to subsequent chunks only (not the first)
             fragment = ((" " + chunk) if i > 0 else chunk)
             await ws.send(msgpack.packb({"type": "Text", "text": fragment}, use_bin_type=True))
+            # Start server TTFB timing when we send the FIRST text chunk
+            if t0_server is None:
+                t0_server = time.perf_counter()
         await ws.send(msgpack.packb({"type": "Eos"}, use_bin_type=True))
 
         # Process the first frame (if any) before main loop
         def _process_frame(raw: bytes) -> bool:
-            nonlocal first_audio_time, sample_rate, final_time
+            nonlocal time_to_first_audio_e2e, time_to_first_audio_server, sample_rate, final_time
             data = msgpack.unpackb(raw, raw=False)
             kind = data.get("type")
             if kind in ("Audio", "Pcm", "AudioPcm", "AudioChunk", "AudioF32", "AudioI16"):
@@ -262,8 +269,10 @@ async def tts_client(
                             return False
                         pcm_i16 = pcm_i16[prefix_samples_to_drop:]
                         prefix_samples_to_drop = 0
-                    if first_audio_time is None:
-                        first_audio_time = time.perf_counter() - t0
+                    if time_to_first_audio_e2e is None:
+                        time_to_first_audio_e2e = time.perf_counter() - t0_e2e
+                    if time_to_first_audio_server is None and t0_server is not None:
+                        time_to_first_audio_server = time.perf_counter() - t0_server
                     pcm_chunks.append(pcm_i16)
                 return False
             elif kind in ("End", "Final", "Done", "Marker"):
@@ -290,8 +299,8 @@ async def tts_client(
                 if _process_frame(raw):
                     break
 
-    wall_s = time.perf_counter() - t0
-    wall_to_final_s = (final_time - t0) if final_time else wall_s
+    wall_s = time.perf_counter() - t0_e2e
+    wall_to_final_s = (final_time - t0_e2e) if final_time else wall_s
 
     if pcm_chunks:
         pcm_int16 = np.concatenate(pcm_chunks, dtype=np.int16)
@@ -315,7 +324,8 @@ async def tts_client(
         "wall_s": float(wall_s),
         "wall_to_final_s": float(wall_to_final_s),
         "audio_s": float(audio_s),
-        "ttfb_s": float(first_audio_time or 0.0),
+        "ttfb_e2e_s": float(time_to_first_audio_e2e or 0.0),
+        "ttfb_server_s": float(time_to_first_audio_server or 0.0),
         "connect_ms": float(connect_ms),
         "handshake_ms": float(handshake_ms),
     }
@@ -354,7 +364,8 @@ def main() -> None:
     )
     print("\n== Result ==")
     print(f"Saved: {res['outfile']}")
-    print(f"TTFB:  {res['ttfb_s']:.3f}s")
+    print(f"TTFB (e2e): {res['ttfb_e2e_s']:.3f}s")
+    print(f"TTFB (srv): {res['ttfb_server_s']:.3f}s")
     print(f"Wall:  {res['wall_s']:.3f}s (to Final: {res['wall_to_final_s']:.3f}s)")
     print(f"Audio: {res['audio_s']:.3f}s")
     print(f"Connect: {res['connect_ms']:.1f}ms  Handshake: {res['handshake_ms']:.1f}ms")
