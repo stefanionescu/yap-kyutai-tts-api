@@ -23,6 +23,16 @@ VOICE_REL="${TTS_VOICE:-ears/p004/freeform_speech_01.wav.@240.safetensors}"
 VOICE_FOLDER_PATTERN="${VOICES_DIR}"
 BS_VAL="${TTS_BATCH_SIZE:-32}"
 
+# Derive the attribute name expected by tts.py (default_voice should NOT include the embedding suffix)
+# If VOICE_REL looks like an embedding file (e.g., freeform.wav.<hash>@240.safetensors), trim to the *.wav base.
+VOICE_REL_BASE="${VOICE_REL}"
+case "${VOICE_REL_BASE}" in
+  *.safetensors)
+    # Keep everything through the first .wav occurrence
+    VOICE_REL_BASE=$(printf "%s" "${VOICE_REL_BASE}" | sed -E 's|(.*\.wav).*|\1|')
+    ;;
+esac
+
 echo "[02-tts] Writing minimal server config to ${DEST_CFG}"
 cat > "${DEST_CFG}" <<EOF
 static_dir = "./static/"
@@ -42,10 +52,10 @@ text_tokenizer_file = "${TEXT_SPM}"
 text_bos_token = 1
 
 [modules.tts_py.py]
-# Python module overrides for tts.py (1.6B with **embeddings**)
+# Python module overrides for tts.py (1.6B with embeddings)
 hf_repo = "kyutai/tts-1.6b-en_fr"
 voice_folder = "${VOICE_FOLDER_PATTERN}"
-default_voice = "${VOICE_REL}"   # must be a **.safetensors** embedding
+default_voice = "${VOICE_REL_BASE}"
 
 # Light onset padding is fine; 1.6B doesn't need audio prefix trimming
 interleaved_text_only = 0
