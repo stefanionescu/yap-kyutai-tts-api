@@ -124,7 +124,7 @@ echo ""
 echo "=== Verification Summary ==="
 if [ "$ERRORS" -eq 0 ]; then
   echo "[06-verify] ✅ All checks passed! Configuration looks correct."
-  echo "[06-verify] Voice: ${TTS_VOICE:-ears/p004/freeform_speech_01.wav}"
+  echo "[06-verify] Voice: ${TTS_VOICE:-ears/p004/freeform_speech_01.wav.1e68beda@240.safetensors}"
   echo "[06-verify] Server: ws://127.0.0.1:${TTS_PORT}/api/tts_streaming"
 else
   echo "[06-verify] ❌ Found ${ERRORS} configuration errors that need fixing"

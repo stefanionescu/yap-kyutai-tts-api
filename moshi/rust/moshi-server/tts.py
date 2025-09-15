@@ -69,7 +69,7 @@ class Config(BaseModel):
     #     e.g. `hf-snapshot://kyutai/tts-voices/unmute-prod-website/*.safetensors`
     # Use HF snapshot of public voices by default
     voice_folder: str = 'hf-snapshot://kyutai/tts-voices/ears/**/*.safetensors'
-    default_voice: str = "ears/p004/freeform_speech_01.wav"
+    default_voice: str = "ears/p004/freeform_speech_01.wav.1e68beda@240.safetensors"
 
     temp: float = 0.6
     cfg_coef: float = 2.

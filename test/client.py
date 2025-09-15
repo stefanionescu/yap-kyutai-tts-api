@@ -91,7 +91,7 @@ def parse_args() -> argparse.Namespace:
     )
     ap.add_argument(
         "--voice",
-        default=os.getenv("TTS_VOICE", "ears/p004/freeform_speech_01.wav"),
+        default=os.getenv("TTS_VOICE", "ears/p004/freeform_speech_01.wav.1e68beda@240.safetensors"),
         help="Voice path available on server (relative to voices dir)",
     )
     ap.add_argument(

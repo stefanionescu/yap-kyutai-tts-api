@@ -25,8 +25,9 @@ unset CUDA_LAUNCH_BLOCKING || true
 export CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-0}"
 export CUDA_DEVICE_ORDER="${CUDA_DEVICE_ORDER:-PCI_BUS_ID}"
 
-# Enable Torch Inductor for better per-step latency (after warmup compile)
-export TORCHINDUCTOR_DISABLE="${TORCHINDUCTOR_DISABLE:-0}"
+# Disable Torch Inductor to improve first-call TTFB for short utterances
+# TorchInductor compilation overhead hurts cold start performance
+export TORCHINDUCTOR_DISABLE="${TORCHINDUCTOR_DISABLE:-1}"
 export PYTORCH_JIT="${PYTORCH_JIT:-0}"
 
 CFG="${TTS_CONFIG}"
