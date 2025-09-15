@@ -68,8 +68,12 @@ async def _run(server: str, text: str, voice_path: Optional[str], out_path: Path
         "close_timeout": 0.5,
     }
 
-    t0 = time.perf_counter()
-    ttfb: Optional[float] = None
+    # We'll measure both:
+    # 1) end-to-end TTFB (includes WS connect) -> ttfb_e2e_s
+    # 2) server TTFB (post-connect, post-send) -> ttfb_server_s (matches Kyutai's claim)
+    t0_e2e = time.perf_counter()
+    time_to_first_audio_e2e: Optional[float] = None
+    time_to_first_audio_server: Optional[float] = None
     sample_rate = 24000
     pcm_chunks: list[np.ndarray] = []
 
@@ -93,18 +97,21 @@ async def _run(server: str, text: str, voice_path: Optional[str], out_path: Path
             
             return chunks
         
-        # Send a primer space frame first to ensure clean tokenizer context
-        await ws.send(msgpack.packb({"type": "Text", "text": " "}, use_bin_type=True))
+        # No primer space frame - padding config in server handles clean onset
         
         chunks = create_chunks(text)
         # Merge tiny first two chunks if they're too small for good priming
         if len(chunks) >= 2 and len(chunks[0].split()) < 10:
             chunks = [" ".join(chunks[:2])] + chunks[2:]
         
+        t0_server: Optional[float] = None
         for i, chunk in enumerate(chunks):
-            # Add leading space to every chunk, including the first, to keep SPM segmentation consistent
-            fragment = (" " + chunk)
+            # Add leading space to subsequent chunks only (not the first)
+            fragment = ((" " + chunk) if i > 0 else chunk)
             await ws.send(msgpack.packb({"type": "Text", "text": fragment}, use_bin_type=True))
+            # Start server TTFB timing when we send the FIRST text chunk
+            if t0_server is None:
+                t0_server = time.perf_counter()
         
         # End-of-sentence to trigger synthesis
         await ws.send(msgpack.packb({"type": "Eos"}, use_bin_type=True))
@@ -118,8 +125,10 @@ async def _run(server: str, text: str, voice_path: Optional[str], out_path: Path
             if mtype in ("Audio", "Pcm", "AudioPcm", "AudioChunk", "AudioF32", "AudioI16"):
                 pcm_i16, sr = _extract_pcm(msg)
                 if pcm_i16.size > 0:
-                    if ttfb is None:
-                        ttfb = time.perf_counter() - t0
+                    if time_to_first_audio_e2e is None:
+                        time_to_first_audio_e2e = time.perf_counter() - t0_e2e
+                    if time_to_first_audio_server is None and t0_server is not None:
+                        time_to_first_audio_server = time.perf_counter() - t0_server
                     sample_rate = sr
                     pcm_chunks.append(pcm_i16)
             elif mtype in ("End", "Final", "Done", "Marker"):
@@ -127,14 +136,15 @@ async def _run(server: str, text: str, voice_path: Optional[str], out_path: Path
             elif mtype in ("Error",):
                 raise RuntimeError(f"server error: {msg}")
 
-    wall = time.perf_counter() - t0
+    wall = time.perf_counter() - t0_e2e
 
     if pcm_chunks:
         pcm = np.concatenate(pcm_chunks, dtype=np.int16)
         _write_wav_int16(out_path, pcm, sample_rate)
         audio_s = len(pcm) / float(sample_rate)
         return {
-            "ttfb_s": float(ttfb or 0.0),
+            "ttfb_e2e_s": float(time_to_first_audio_e2e or 0.0),
+            "ttfb_server_s": float(time_to_first_audio_server or 0.0),
             "wall_s": float(wall),
             "audio_s": float(audio_s),
             "rtf": float((wall / audio_s) if audio_s > 0 else 0.0),
@@ -144,7 +154,8 @@ async def _run(server: str, text: str, voice_path: Optional[str], out_path: Path
         }
     else:
         return {
-            "ttfb_s": 0.0,
+            "ttfb_e2e_s": 0.0,
+            "ttfb_server_s": 0.0,
             "wall_s": float(wall),
             "audio_s": 0.0,
             "rtf": 0.0,
@@ -171,7 +182,8 @@ def main() -> int:
         print("No audio received (check logs / config).")
     
     # Print results without JSON formatting
-    print(f"TTFB: {res['ttfb_s']:.4f}s")
+    print(f"TTFB (e2e): {res['ttfb_e2e_s']:.4f}s")
+    print(f"TTFB (srv): {res['ttfb_server_s']:.4f}s") 
     print(f"Wall: {res['wall_s']:.4f}s") 
     print(f"Audio: {res['audio_s']:.4f}s")
     print(f"RTF: {res['rtf']:.4f}")

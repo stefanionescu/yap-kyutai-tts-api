@@ -51,7 +51,8 @@ fi
 TTS_BATCH_SIZE=32
 export TTS_BATCH_SIZE
 # Worker threads inside moshi-server (concurrent synthesis tasks)
-TTS_NUM_WORKERS=${TTS_NUM_WORKERS:-12}
+# Match/beat your benchmark concurrency to avoid queueing
+TTS_NUM_WORKERS=${TTS_NUM_WORKERS:-32}
 # Optional server-side request queue length (if supported by your moshi build)
 TTS_MAX_QUEUE_LEN=${TTS_MAX_QUEUE_LEN:-256}
 # Rayon CPU threads (Candle). Keep low to avoid CPU thrash on GPU runs
