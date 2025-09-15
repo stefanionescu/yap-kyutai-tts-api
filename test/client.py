@@ -38,6 +38,9 @@ DEFAULT_TEXT = (
     "It's kinda hot to see your juicy ass bounce on my cock that hard."
 )
 
+# For 1.6B embeddings, we don't need voice prefix trimming
+DEFAULT_TRIM_MS = 0
+
 
 def _looks_like_runpod_proxy(host: str) -> bool:
     h = (host or "").lower()
@@ -200,47 +203,11 @@ async def tts_client(
             handshake_ms = 0.0
             first_frame = None
 
-        # Send text in ~12-token chunks with proper spacing, then Eos
-        def create_chunks(text: str, target_tokens_per_chunk: int = 8) -> List[str]:
-            """Split text into chunks of approximately target_tokens_per_chunk tokens."""
-            words = text.split()
-            chunks = []
-            current_chunk = []
-            
-            for word in words:
-                current_chunk.append(word)
-                # Rough estimate: average ~1.3 tokens per word for English
-                if len(current_chunk) >= max(1, target_tokens_per_chunk // 1.3):
-                    chunks.append(" ".join(current_chunk))
-                    current_chunk = []
-            
-            if current_chunk:
-                chunks.append(" ".join(current_chunk))
-            
-            return chunks
-        
-        # Send all text as chunked streams
-        all_chunks = []
-        for text in texts:
-            all_chunks.extend(create_chunks(text))
-        
-        # No primer space frame - padding config in server handles clean onset
-        
-        # IMPORTANT: do NOT merge the first two chunks; we want the smallest possible first prefill
-        
-        t0_server: Optional[float] = None
-        for i, chunk in enumerate(all_chunks):
-            # Add leading space to subsequent chunks only (not the first)
-            fragment = ((" " + chunk) if i > 0 else chunk)
-            await ws.send(msgpack.packb({"type": "Text", "text": fragment}, use_bin_type=True))
-            # Start server TTFB timing when we send the FIRST text chunk
-            if t0_server is None:
-                t0_server = time.perf_counter()
-        await ws.send(msgpack.packb({"type": "Eos"}, use_bin_type=True))
+        # True full-duplex: concurrent reader/sender for optimal TTFB
+        t0_server_holder = {"t0": None}
 
-        # Process the first frame (if any) before main loop
         def _process_frame(raw: bytes) -> bool:
-            nonlocal time_to_first_audio_e2e, time_to_first_audio_server, sample_rate, final_time
+            nonlocal time_to_first_audio_e2e, time_to_first_audio_server, sample_rate, final_time, prefix_samples_to_drop
             data = msgpack.unpackb(raw, raw=False)
             kind = data.get("type")
             if kind in ("Audio", "Pcm", "AudioPcm", "AudioChunk", "AudioF32", "AudioI16"):
@@ -260,7 +227,6 @@ async def tts_client(
                     pcm_i16 = arr.astype(np.int16, copy=False)
                 if pcm_i16.size > 0:
                     # Drop voice prefix samples once at stream start
-                    nonlocal prefix_samples_to_drop
                     if prefix_samples_to_drop > 0:
                         if pcm_i16.size <= prefix_samples_to_drop:
                             prefix_samples_to_drop -= pcm_i16.size
@@ -269,8 +235,8 @@ async def tts_client(
                         prefix_samples_to_drop = 0
                     if time_to_first_audio_e2e is None:
                         time_to_first_audio_e2e = time.perf_counter() - t0_e2e
-                    if time_to_first_audio_server is None and t0_server is not None:
-                        time_to_first_audio_server = time.perf_counter() - t0_server
+                    if time_to_first_audio_server is None and t0_server_holder["t0"] is not None:
+                        time_to_first_audio_server = time.perf_counter() - t0_server_holder["t0"]
                     pcm_chunks.append(pcm_i16)
                 return False
             elif kind in ("End", "Final", "Done", "Marker"):
@@ -279,23 +245,43 @@ async def tts_client(
             else:
                 return False
 
-        if first_frame is not None:
-            if _process_frame(first_frame):
-                # Already finalized
-                pass
-            else:
+        async def reader():
+            try:
+                # Process the first frame (if any) before main loop
+                if first_frame is not None:
+                    if _process_frame(first_frame):
+                        return
                 # Continue with stream
-                async for raw in ws:
+                while True:
+                    raw = await ws.recv()
                     if not isinstance(raw, (bytes, bytearray)):
                         continue
                     if _process_frame(raw):
                         break
-        else:
-            async for raw in ws:
-                if not isinstance(raw, (bytes, bytearray)):
-                    continue
-                if _process_frame(raw):
-                    break
+            except (asyncio.CancelledError, Exception):
+                # Connection closed or task cancelled, exit gracefully
+                pass
+
+        async def sender():
+            try:
+                all_words = []
+                for text in texts:
+                    all_words.extend(text.split())
+                
+                for i, word in enumerate(all_words):
+                    fragment = word if i == 0 else (" " + word)
+                    await ws.send(msgpack.packb({"type": "Text", "text": fragment}, use_bin_type=True))
+                    if t0_server_holder["t0"] is None:
+                        t0_server_holder["t0"] = time.perf_counter()
+                    # tiny yield to let reader run
+                    await asyncio.sleep(0)
+                await ws.send(msgpack.packb({"type": "Eos"}, use_bin_type=True))
+            except (asyncio.CancelledError, Exception):
+                # Connection closed or task cancelled, exit gracefully
+                pass
+
+        # run both concurrently, handle exceptions gracefully
+        await asyncio.gather(reader(), sender(), return_exceptions=True)
 
     wall_s = time.perf_counter() - t0_e2e
     wall_to_final_s = (final_time - t0_e2e) if final_time else wall_s
