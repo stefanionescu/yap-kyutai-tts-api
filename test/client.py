@@ -52,7 +52,7 @@ def _ws_url(server: str, voice_path: Optional[str]) -> str:
         base = f"ws://{server.strip().rstrip('/')}"
     qp: List[str] = [
         "format=PcmMessagePack",
-        "max_seq_len=768",
+        "max_seq_len=128",
         "temp=0.2",
         "seed=42",
     ]
@@ -201,7 +201,7 @@ async def tts_client(
             first_frame = None
 
         # Send text in ~12-token chunks with proper spacing, then Eos
-        def create_chunks(text: str, target_tokens_per_chunk: int = 12) -> List[str]:
+        def create_chunks(text: str, target_tokens_per_chunk: int = 8) -> List[str]:
             """Split text into chunks of approximately target_tokens_per_chunk tokens."""
             words = text.split()
             chunks = []
@@ -226,9 +226,7 @@ async def tts_client(
         
         # No primer space frame - padding config in server handles clean onset
         
-        # Merge tiny first two chunks if they're too small for good priming
-        if len(all_chunks) >= 2 and len(all_chunks[0].split()) < 10:
-            all_chunks = [" ".join(all_chunks[:2])] + all_chunks[2:]
+        # IMPORTANT: do NOT merge the first two chunks; we want the smallest possible first prefill
         
         t0_server: Optional[float] = None
         for i, chunk in enumerate(all_chunks):

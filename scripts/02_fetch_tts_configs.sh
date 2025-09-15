@@ -23,18 +23,33 @@ mkdir -p "${MODEL_DIR}"
 # Snapshot once; reuse forever
 if [ ! -f "${MODEL_DIR}/tokenizer_spm_8k_en_fr_audio.model" ]; then
   echo "[02-tts] Downloading tts-1.6b-en_fr model to ${MODEL_DIR}"
+  export MODEL_DIR
   "${ROOT_DIR}/.venv/bin/python" - <<'PY'
 import os
 from huggingface_hub import snapshot_download
 dst = os.environ.get("MODEL_DIR")
+if not dst:
+    print("ERROR: MODEL_DIR not set")
+    exit(1)
+print(f"Downloading tts-1.6b-en_fr to {dst}")
 snapshot_download("kyutai/tts-1.6b-en_fr", local_dir=dst, local_dir_use_symlinks=False, resume_download=True)
-print("Downloaded tts-1.6b-en_fr to", dst)
+print(f"Downloaded tts-1.6b-en_fr to {dst}")
 PY
   echo "[02-tts] Model download completed"
+  # Verify the tokenizer file exists
+  if [ ! -f "${MODEL_DIR}/tokenizer_spm_8k_en_fr_audio.model" ]; then
+    echo "[02-tts] ERROR: Tokenizer file not found after download: ${MODEL_DIR}/tokenizer_spm_8k_en_fr_audio.model"
+    echo "[02-tts] Falling back to hf:// path"
+    TEXT_SPM="hf://kyutai/tts-1.6b-en_fr/tokenizer_spm_8k_en_fr_audio.model"
+  else
+    echo "[02-tts] ✓ Tokenizer verified: ${MODEL_DIR}/tokenizer_spm_8k_en_fr_audio.model"
+    TEXT_SPM="${MODEL_DIR}/tokenizer_spm_8k_en_fr_audio.model"
+  fi
 else
   echo "[02-tts] Model already present at ${MODEL_DIR}"
+  TEXT_SPM="${MODEL_DIR}/tokenizer_spm_8k_en_fr_audio.model"
 fi
-TEXT_SPM="${MODEL_DIR}/tokenizer_spm_8k_en_fr_audio.model"
+
 VOICE_REL="${TTS_VOICE:-ears/p004/freeform_speech_01.wav.@240.safetensors}"
 VOICE_FOLDER_PATTERN="${VOICES_DIR}"
 BS_VAL="${TTS_BATCH_SIZE:-32}"
