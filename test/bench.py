@@ -268,7 +268,7 @@ def main() -> None:
     ap.add_argument("--server", default="127.0.0.1:8089", help="host:port or ws://host:port or full URL")
     ap.add_argument("--n", type=int, default=10, help="Total requests")
     ap.add_argument("--concurrency", type=int, default=10, help="Max concurrent sessions")
-    ap.add_argument("--voice", type=str, default=str(DATA_DIR / "voices" / "ears" / "p004" / "freeform_speech_01.wav"), help="Reference voice path on the server filesystem")
+    ap.add_argument("--voice", type=str, default=os.environ.get("TTS_VOICE", "ears/p004/freeform_speech_01.wav.1e68beda@240.safetensors"), help="Reference voice path on the server filesystem")
     ap.add_argument("--text", action="append", default=None, help="Inline text prompt (repeat for multiple)")
     ap.add_argument("--api-key", default=None, help="API key for authentication (defaults to KYUTAI_API_KEY env var or 'public_token')")
     args = ap.parse_args()

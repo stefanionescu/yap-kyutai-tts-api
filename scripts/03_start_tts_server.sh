@@ -10,7 +10,7 @@ export HF_HOME HF_HUB_ENABLE_HF_TRANSFER
 
 # Threading and allocator caps to reduce CPU thrash and make latency predictable
 export RAYON_NUM_THREADS="${TTS_RAYON_THREADS:-1}"
-export TOKIO_WORKER_THREADS="${TTS_TOKIO_THREADS:-4}"
+export TOKIO_WORKER_THREADS="${TTS_TOKIO_THREADS:-16}"
 export MALLOC_ARENA_MAX="${MALLOC_ARENA_MAX:-2}"
 export OMP_NUM_THREADS="${OMP_NUM_THREADS:-1}"
 export MKL_NUM_THREADS="${MKL_NUM_THREADS:-1}"
@@ -19,14 +19,14 @@ export MKL_NUM_THREADS="${MKL_NUM_THREADS:-1}"
 export RUST_LOG="${RUST_LOG:-warn,hyper=warn,axum=warn}"
 export RUST_BACKTRACE="${RUST_BACKTRACE:-full}"
 
-# GPU concurrency knobs: avoid stream → connection aliasing at 8 by raising to 32
-export CUDA_DEVICE_MAX_CONNECTIONS="${CUDA_DEVICE_MAX_CONNECTIONS:-32}"
+# GPU concurrency knobs: raise to 64 to help avoid contention under bursts
+export CUDA_DEVICE_MAX_CONNECTIONS="${CUDA_DEVICE_MAX_CONNECTIONS:-64}"
 unset CUDA_LAUNCH_BLOCKING || true
 export CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-0}"
 export CUDA_DEVICE_ORDER="${CUDA_DEVICE_ORDER:-PCI_BUS_ID}"
 
-# Optionally disable Torch Inductor to avoid Python stdlib mismatch crashes during compile_worker
-export TORCHINDUCTOR_DISABLE="${TORCHINDUCTOR_DISABLE:-1}"
+# Enable Torch Inductor for better per-step latency (after warmup compile)
+export TORCHINDUCTOR_DISABLE="${TORCHINDUCTOR_DISABLE:-0}"
 export PYTORCH_JIT="${PYTORCH_JIT:-0}"
 
 CFG="${TTS_CONFIG}"
