@@ -10,25 +10,38 @@ else
   git -C "${DSM_DIR}" pull --ff-only || true
 fi
 
-# Copy the reference TTS config into your repo and retarget the model to 0.75b EN
+# Copy or reuse the reference TTS config; prefer reusing existing
 DEST_CFG="${TTS_CONFIG}"
 mkdir -p "$(dirname "${DEST_CFG}")"
-cp -f "${DSM_DIR}/configs/config-tts.toml" "${DEST_CFG}"
+if [ -f "${DEST_CFG}" ]; then
+  echo "[02-tts] Using existing server config (no changes): ${DEST_CFG}"
+else
+  cp -f "${DSM_DIR}/configs/config-tts.toml" "${DEST_CFG}"
 
-# Point to the public, smaller English-only model
-sed -i 's#kyutai/tts-1.6b-en_fr#kyutai/tts-0.75b-en-public#g' "${DEST_CFG}" || true
+# Portable in-place sed (macOS/BSD and GNU)
+sedi() {
+  if sed --version >/dev/null 2>&1; then
+    sed -i "$@"
+  else
+    # BSD/macOS sed
+    sed -i '' "$@"
+  fi
+}
+
+  # Point to the public, smaller English-only model
+  sedi 's#kyutai/tts-1.6b-en_fr#kyutai/tts-0.75b-en-public#g' "${DEST_CFG}" || true
 
 # Ensure the top-level tokenizer settings exist (root of TOML, before any [table])
 #  - Use the SentencePiece text tokenizer shipped with 0.75B EN
 #  - Align with model config: text_card=8000, existing_text_padding_id=3
 #  - Standard SPM BOS/EOS ids
-TEXT_SPM="hf://kyutai/tts-0.75b-en-public/tokenizer_spm_8k_en_fr_audio.model"
-# Remove any wrong tokenizer.json occurrences anywhere
-sed -i '/tokenizer\.json/d' "${DEST_CFG}"
+  TEXT_SPM="hf://kyutai/tts-0.75b-en-public/tokenizer_spm_8k_en_fr_audio.model"
+  # Remove any wrong tokenizer.json occurrences anywhere
+  sedi '/tokenizer\.json/d' "${DEST_CFG}"
 
 # Find the first table header line to keep our top-level keys truly at root
-FIRST_HDR_LINE=$(grep -n '^\[' "${DEST_CFG}" | head -n 1 | cut -d: -f1 || true)
-if [ -n "${FIRST_HDR_LINE:-}" ]; then
+  FIRST_HDR_LINE=$(grep -n '^\[' "${DEST_CFG}" | head -n 1 | cut -d: -f1 || true)
+  if [ -n "${FIRST_HDR_LINE:-}" ]; then
   # Split into head (root) and tail (tables)
   head -n "$((FIRST_HDR_LINE - 1))" "${DEST_CFG}" \
     | sed -E \
@@ -47,12 +60,12 @@ existing_text_padding_id = 3
 text_bos_token = 1
 text_eos_token = 2
 EOF
-  tail -n +"${FIRST_HDR_LINE}" "${DEST_CFG}" > "${DEST_CFG}.tail"
-  cat "${DEST_CFG}.head" "${DEST_CFG}.root_keys" "${DEST_CFG}.tail" > "${DEST_CFG}.tmp" && mv "${DEST_CFG}.tmp" "${DEST_CFG}"
-  rm -f "${DEST_CFG}.head" "${DEST_CFG}.root_keys" "${DEST_CFG}.tail"
-else
+    tail -n +"${FIRST_HDR_LINE}" "${DEST_CFG}" > "${DEST_CFG}.tail"
+    cat "${DEST_CFG}.head" "${DEST_CFG}.root_keys" "${DEST_CFG}.tail" > "${DEST_CFG}.tmp" && mv "${DEST_CFG}.tmp" "${DEST_CFG}"
+    rm -f "${DEST_CFG}.head" "${DEST_CFG}.root_keys" "${DEST_CFG}.tail"
+  else
   # No tables found: just append the block at the end (still root)
-  cat >> "${DEST_CFG}" <<EOF
+    cat >> "${DEST_CFG}" <<EOF
 
 # --- Text tokenizer (Kyutai TTS 0.75B EN) ---
 text_tokenizer_file = "${TEXT_SPM}"
@@ -61,11 +74,11 @@ existing_text_padding_id = 3
 text_bos_token = 1
 text_eos_token = 2
 EOF
-fi
+  fi
 
 # Ensure modules.tts_py block exists with batch_size and tokenization settings configured
-if ! grep -q "^\[modules.tts_py\]" "${DEST_CFG}"; then
-  cat >> "${DEST_CFG}" <<EOF
+  if ! grep -q "^\[modules.tts_py\]" "${DEST_CFG}"; then
+    cat >> "${DEST_CFG}" <<EOF
 
 [modules.tts_py]
 type = "Py"
@@ -75,7 +88,7 @@ batch_size = ${TTS_BATCH_SIZE:-64}
 text_tokenizer_file = "hf://kyutai/tts-0.75b-en-public/tokenizer_spm_8k_en_fr_audio.model"
 text_bos_token = 1
 EOF
-else
+  else
   # Ensure batch_size and tokenization settings exist or override inside the tts_py block
   awk -v bs="${TTS_BATCH_SIZE:-64}" '
     BEGIN{inblk=0; inserted=0}
@@ -95,33 +108,28 @@ else
       print
     }
   ' "${DEST_CFG}" > "${DEST_CFG}.tmp" && mv "${DEST_CFG}.tmp" "${DEST_CFG}"
-fi
+  fi
 
-# Ensure modules.tts_py.py sub-table exists and set Python-side overrides for 0.75B EN
-VOICE_REL="${TTS_VOICE:-ears/p004/freeform_speech_01.wav}"
-VOICES_DIR="${VOICES_DIR:-${ROOT_DIR}/.data/voices}"
-# Use absolute path and pin to p004 embeddings only to avoid random voice selection
-VOICE_FOLDER_PATTERN="${VOICES_DIR}/ears/p004/*.safetensors"
-DEFAULT_VOICE_ABS="${VOICES_DIR}/${VOICE_REL}"
-if ! grep -q "^\[modules.tts_py.py\]" "${DEST_CFG}"; then
-  cat >> "${DEST_CFG}" <<EOF
+  # Ensure modules.tts_py.py sub-table exists and set Python-side overrides for 0.75B EN
+  # Keep keys like "ears/p004/freeform_speech_01.wav" (relative key) and point
+  # the voice_folder to the local voices mirror so we don't hit HF at runtime.
+  VOICE_REL="${TTS_VOICE:-ears/p004/freeform_speech_01.wav}"
+  VOICES_DIR="${VOICES_DIR:-${ROOT_DIR}/.data/voices}"
+  VOICE_FOLDER_PATTERN="${VOICES_DIR}/**/*.safetensors"
+  DEFAULT_VOICE_KEY="${VOICE_REL}"
+  if ! grep -q "^\[modules.tts_py.py\]" "${DEST_CFG}"; then
+    cat >> "${DEST_CFG}" <<EOF
 
 [modules.tts_py.py]
 # Python module overrides for tts.py
 n_q = 16
 voice_folder = "${VOICE_FOLDER_PATTERN}"
-default_voice = "${DEFAULT_VOICE_ABS}"
-# Quality-first for the first ~200 ms, still low latency
-interleaved_text_only = 0
-initial_padding = 3
-final_padding = 2
-max_padding = 4
-padding_between = 1
-padding_bonus = 0.5
-cfg_coef = 1.1
+default_voice = "${DEFAULT_VOICE_KEY}"
+# Leave generation pacing at library defaults to avoid startup artifacts
+# (interleaved_text_only defaults to 2 for a brief text-only warmup)
 EOF
-else
-  awk -v voice_folder="${VOICE_FOLDER_PATTERN}" -v default_voice="${DEFAULT_VOICE_ABS}" '
+  else
+    awk -v voice_folder="${VOICE_FOLDER_PATTERN}" -v default_voice="${DEFAULT_VOICE_KEY}" '
     BEGIN{inblk=0}
     /^\[modules\.tts_py\.py\]/{inblk=1}
     /^\[/{if(inblk){inblk=0}}
@@ -129,64 +137,31 @@ else
       if(inblk && $1 ~ /^n_q/){$0="n_q = 16"}
       if(inblk && $1 ~ /^voice_folder/){$0="voice_folder = \"" voice_folder "\""}
       if(inblk && $1 ~ /^default_voice/){$0="default_voice = \"" default_voice "\""}
-      if(inblk && $1 ~ /^cfg_coef/){$0="cfg_coef = 1.1"}
-      if(inblk && $1 ~ /^padding_between/){$0="padding_between = 1"}
-      if(inblk && $1 ~ /^interleaved_text_only/){$0="interleaved_text_only = 0"}
-      if(inblk && $1 ~ /^initial_padding/){$0="initial_padding = 3"}
-      if(inblk && $1 ~ /^final_padding/){$0="final_padding = 2"}
-      if(inblk && $1 ~ /^max_padding/){$0="max_padding = 4"}
-      if(inblk && $1 ~ /^padding_bonus/){$0="padding_bonus = 0.5"}
+      if(inblk && $1 ~ /^(cfg_coef|padding_between|interleaved_text_only|initial_padding|final_padding|max_padding|padding_bonus)/){next}
       print
     }
   ' "${DEST_CFG}" > "${DEST_CFG}.tmp" && mv "${DEST_CFG}.tmp" "${DEST_CFG}"
+  fi
+
+  echo "[02-tts] Wrote ${DEST_CFG}"
 fi
 
-echo "[02-tts] Wrote ${DEST_CFG}"
-
-# Download voice WAV and embedding (.safetensors) for consistent voice quality
+# Download the entire voices repository once (all datasets) and reuse thereafter
 VOICES_DIR="${VOICES_DIR:-${ROOT_DIR}/.data/voices}"
-VOICE_DST="${VOICES_DIR}/${VOICE_REL}"
-VOICE_DIR="$(dirname "${VOICE_DST}")"
-mkdir -p "${VOICE_DIR}"
-
-# Download the complete p004 voice folder (WAV + embedding) using Python
-if [ ! -f "${VOICE_DST}" ] || [ ! -f "${VOICE_DIR}"/*.safetensors ]; then
-  echo "[02-tts] Downloading voice files (WAV + embedding) for: ${VOICE_REL}"
+mkdir -p "${VOICES_DIR}"
+if find "${VOICES_DIR}" -type f \( -name '*.safetensors' -o -name '*.wav' \) | head -n 1 >/dev/null; then
+  echo "[02-tts] Voices already present in ${VOICES_DIR} (skip download)"
+else
+  echo "[02-tts] Downloading ALL voices to ${VOICES_DIR} (kyutai/tts-voices)"
   "${ROOT_DIR}/.venv/bin/python" - <<'PY'
-import sys
-import os
-from pathlib import Path
+import os, sys
+dst = os.environ.get('VOICES_DIR')
 try:
     from huggingface_hub import snapshot_download
-    voices_dir = os.environ.get('VOICES_DIR', '.data/voices')
-    print(f"Downloading p004 voice to {voices_dir}")
-    snapshot_download(
-        "kyutai/tts-voices",
-        local_dir=voices_dir,
-        local_dir_use_symlinks=False,
-        allow_patterns=["ears/p004/*"],
-        resume_download=True,
-    )
-    print("Downloaded p004 voice files (WAV + embedding)")
-except ImportError:
-    print("WARNING: huggingface_hub not available, falling back to WAV-only download")
-    sys.exit(1)
+    snapshot_download('kyutai/tts-voices', local_dir=dst, local_dir_use_symlinks=False, resume_download=True)
+    print('Voices snapshot downloaded.')
 except Exception as e:
-    print(f"WARNING: Failed to download voice files: {e}")
+    print(f'[02-tts] ERROR downloading voices: {e}')
     sys.exit(1)
 PY
-  
-  # Fallback to WAV-only if Python download failed
-  if [ $? -ne 0 ] && [ ! -f "${VOICE_DST}" ]; then
-    echo "[02-tts] Falling back to WAV-only download: ${VOICE_REL}"
-    URL="https://huggingface.co/kyutai/tts-voices/resolve/main/${VOICE_REL}"
-    if curl -fL -o "${VOICE_DST}.tmp" "${URL}" 2>/dev/null || wget -q -O "${VOICE_DST}.tmp" "${URL}"; then
-      mv "${VOICE_DST}.tmp" "${VOICE_DST}"
-      echo "[02-tts] Saved voice WAV to ${VOICE_DST}"
-    else
-      echo "[02-tts] WARNING: Could not download voice WAV: ${VOICE_REL}"
-    fi
-  fi
-else
-  echo "[02-tts] Voice files already exist: ${VOICE_DST}"
 fi
