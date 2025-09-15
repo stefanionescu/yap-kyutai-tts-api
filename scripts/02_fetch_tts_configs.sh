@@ -45,16 +45,19 @@ text_bos_token = 1
 # Python module overrides for tts.py
 hf_repo = "kyutai/tts-0.75b-en-public"
 n_q = 16
-voice_folder = "${VOICE_FOLDER_PATTERN}"
+voice_folder = "${VOICE_FOLDER_PATTERN}/ears/p004"
 default_voice = "${VOICE_REL}"
 # Quality & onset hygiene - prevents initial pop/garble
 interleaved_text_only = 0
-initial_padding = 3
+initial_padding = 4
 final_padding = 2
 max_padding = 4
 padding_between = 1
 padding_bonus = 0.5
-cfg_coef = 1.1
+# Deterministic sampling parameters for consistent voice generation
+temp = 0.0
+cfg_coef = 1.2
+seed = 42
 EOF
 
 echo "[02-tts] Wrote ${DEST_CFG}"
