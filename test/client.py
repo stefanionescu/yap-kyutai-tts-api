@@ -201,9 +201,13 @@ async def tts_client(
         # Send a primer space frame first to ensure clean tokenizer context
         await ws.send(msgpack.packb({"type": "Text", "text": " "}, use_bin_type=True))
         
+        # Merge tiny first two chunks if they're too small for good priming
+        if len(all_chunks) >= 2 and len(all_chunks[0].split()) < 10:
+            all_chunks = [" ".join(all_chunks[:2])] + all_chunks[2:]
+        
         for i, chunk in enumerate(all_chunks):
-            # Add leading space to each chunk (including first) for consistent SPM segmentation
-            fragment = " " + chunk
+            # Add leading space to every chunk, including the first, to keep SPM segmentation consistent
+            fragment = (" " + chunk)
             await ws.send(msgpack.packb({"type": "Text", "text": fragment}, use_bin_type=True))
         await ws.send(msgpack.packb({"type": "Eos"}, use_bin_type=True))
 
