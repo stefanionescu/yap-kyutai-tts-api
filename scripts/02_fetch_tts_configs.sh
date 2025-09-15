@@ -108,14 +108,14 @@ if ! grep -q "^\[modules.tts_py.py\]" "${DEST_CFG}"; then
 n_q = 16
 voice_folder = "${VOICE_FOLDER_PATTERN}"
 default_voice = "${VOICE_REL}"
-# Stability > raw TTFB for the first 200 ms
-interleaved_text_only = 1
-initial_padding = 1
+# Quality-first for the first ~200 ms, still low latency
+interleaved_text_only = 0
+initial_padding = 2
 final_padding = 2
 max_padding = 4
 padding_between = 1
-padding_bonus = 1.0
-cfg_coef = 1.0
+padding_bonus = 0.5
+cfg_coef = 1.6
 EOF
 else
   awk -v voice_folder="${VOICE_FOLDER_PATTERN}" -v default_voice="${VOICE_REL}" '
@@ -126,13 +126,13 @@ else
       if(inblk && $1 ~ /^n_q/){$0="n_q = 16"}
       if(inblk && $1 ~ /^voice_folder/){$0="voice_folder = \"" voice_folder "\""}
       if(inblk && $1 ~ /^default_voice/){$0="default_voice = \"" default_voice "\""}
-      if(inblk && $1 ~ /^cfg_coef/){$0="cfg_coef = 1.0"}
+      if(inblk && $1 ~ /^cfg_coef/){$0="cfg_coef = 1.6"}
       if(inblk && $1 ~ /^padding_between/){$0="padding_between = 1"}
-      if(inblk && $1 ~ /^interleaved_text_only/){$0="interleaved_text_only = 1"}
-      if(inblk && $1 ~ /^initial_padding/){$0="initial_padding = 1"}
+      if(inblk && $1 ~ /^interleaved_text_only/){$0="interleaved_text_only = 0"}
+      if(inblk && $1 ~ /^initial_padding/){$0="initial_padding = 2"}
       if(inblk && $1 ~ /^final_padding/){$0="final_padding = 2"}
       if(inblk && $1 ~ /^max_padding/){$0="max_padding = 4"}
-      if(inblk && $1 ~ /^padding_bonus/){$0="padding_bonus = 1.0"}
+      if(inblk && $1 ~ /^padding_bonus/){$0="padding_bonus = 0.5"}
       print
     }
   ' "${DEST_CFG}" > "${DEST_CFG}.tmp" && mv "${DEST_CFG}.tmp" "${DEST_CFG}"
@@ -140,17 +140,50 @@ fi
 
 echo "[02-tts] Wrote ${DEST_CFG}"
 
-# Optionally fetch a single reference WAV for tests; embeddings will be snapshot-downloaded lazily
+# Download voice WAV and embedding (.safetensors) for consistent voice quality
 VOICES_DIR="${VOICES_DIR:-${ROOT_DIR}/.data/voices}"
 VOICE_DST="${VOICES_DIR}/${VOICE_REL}"
-mkdir -p "$(dirname "${VOICE_DST}")"
-if [ ! -f "${VOICE_DST}" ]; then
-  echo "[02-tts] Downloading voice WAV for smoke test: ${VOICE_REL}"
-  URL="https://huggingface.co/kyutai/tts-voices/resolve/main/${VOICE_REL}"
-  if curl -fL -o "${VOICE_DST}.tmp" "${URL}" 2>/dev/null || wget -q -O "${VOICE_DST}.tmp" "${URL}"; then
-    mv "${VOICE_DST}.tmp" "${VOICE_DST}"
-    echo "[02-tts] Saved voice WAV to ${VOICE_DST}"
-  else
-    echo "[02-tts] WARNING: Could not download voice WAV: ${VOICE_REL}"
+VOICE_DIR="$(dirname "${VOICE_DST}")"
+mkdir -p "${VOICE_DIR}"
+
+# Download the complete p004 voice folder (WAV + embedding) using Python
+if [ ! -f "${VOICE_DST}" ] || [ ! -f "${VOICE_DIR}"/*.safetensors ]; then
+  echo "[02-tts] Downloading voice files (WAV + embedding) for: ${VOICE_REL}"
+  "${ROOT_DIR}/.venv/bin/python" - <<'PY'
+import sys
+import os
+from pathlib import Path
+try:
+    from huggingface_hub import snapshot_download
+    voices_dir = os.environ.get('VOICES_DIR', '.data/voices')
+    print(f"Downloading p004 voice to {voices_dir}")
+    snapshot_download(
+        "kyutai/tts-voices",
+        local_dir=voices_dir,
+        local_dir_use_symlinks=False,
+        allow_patterns=["ears/p004/*"],
+        resume_download=True,
+    )
+    print("Downloaded p004 voice files (WAV + embedding)")
+except ImportError:
+    print("WARNING: huggingface_hub not available, falling back to WAV-only download")
+    sys.exit(1)
+except Exception as e:
+    print(f"WARNING: Failed to download voice files: {e}")
+    sys.exit(1)
+PY
+  
+  # Fallback to WAV-only if Python download failed
+  if [ $? -ne 0 ] && [ ! -f "${VOICE_DST}" ]; then
+    echo "[02-tts] Falling back to WAV-only download: ${VOICE_REL}"
+    URL="https://huggingface.co/kyutai/tts-voices/resolve/main/${VOICE_REL}"
+    if curl -fL -o "${VOICE_DST}.tmp" "${URL}" 2>/dev/null || wget -q -O "${VOICE_DST}.tmp" "${URL}"; then
+      mv "${VOICE_DST}.tmp" "${VOICE_DST}"
+      echo "[02-tts] Saved voice WAV to ${VOICE_DST}"
+    else
+      echo "[02-tts] WARNING: Could not download voice WAV: ${VOICE_REL}"
+    fi
   fi
+else
+  echo "[02-tts] Voice files already exist: ${VOICE_DST}"
 fi

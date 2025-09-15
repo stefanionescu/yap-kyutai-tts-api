@@ -43,7 +43,7 @@ def _ws_url(server: str, voice_path: Optional[str]) -> str:
         qp.append(f"voice={quote(voice_path)}")
     qp.append("format=PcmMessagePack")
     # Optional: reduce KV cache to limit VRAM usage under high concurrency
-    qp.append("max_seq_len=512")
+    qp.append("max_seq_len=768")
     return f"{base}/api/tts_streaming?{'&'.join(qp)}"
 
 
@@ -124,6 +124,10 @@ async def _tts_one(
             return chunks
         
         chunks = create_chunks(text)
+        # Merge tiny first two chunks if they're too small for good priming
+        if len(chunks) >= 2 and len(chunks[0].split()) < 10:
+            chunks = [" ".join(chunks[:2])] + chunks[2:]
+        
         for i, chunk in enumerate(chunks):
             # Add leading space to every chunk, including the first, for consistent SPM segmentation
             fragment = (" " + chunk)

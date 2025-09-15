@@ -49,7 +49,7 @@ def _ws_url(server: str, voice_path: Optional[str]) -> str:
         base = f"ws://{server.strip().rstrip('/')}"
     qp: List[str] = [
         "format=PcmMessagePack",
-        "max_seq_len=512",
+        "max_seq_len=768",
     ]
     if voice_path:
         from urllib.parse import quote
@@ -197,6 +197,10 @@ async def tts_client(
         all_chunks = []
         for text in texts:
             all_chunks.extend(create_chunks(text))
+        
+        # Merge tiny first two chunks if they're too small for good priming
+        if len(all_chunks) >= 2 and len(all_chunks[0].split()) < 10:
+            all_chunks = [" ".join(all_chunks[:2])] + all_chunks[2:]
         
         for i, chunk in enumerate(all_chunks):
             # Add leading space to every chunk, including the first, to keep SPM segmentation consistent
