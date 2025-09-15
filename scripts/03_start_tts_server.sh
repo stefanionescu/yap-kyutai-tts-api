@@ -43,6 +43,22 @@ echo "[03-tts] Voice and tokenizer configuration:"
 grep -nE 'voice_folder|default_voice|text_tokenizer_file|hf-snapshot' "${CFG}" || echo "No voice/tokenizer config found"
 echo "[03-tts] Reusing config at ${CFG} (no re-generation here)"
 
+# Verify voice embedding exists
+echo "[03-tts] Verifying voice embedding:"
+echo "[03-tts] Expected voice: ${VOICES_DIR}/${TTS_VOICE}"
+if [ -f "${VOICES_DIR}/${TTS_VOICE}" ]; then
+    echo "[03-tts] ✓ Voice embedding found:"
+    ls -lh "${VOICES_DIR}/${TTS_VOICE}"
+    # Auto-detect if there are multiple p004 embeddings for reference
+    P004_COUNT=$(find "${VOICES_DIR}/ears/p004" -maxdepth 1 -name "*.safetensors" 2>/dev/null | wc -l)
+    echo "[03-tts] p004 embeddings available: ${P004_COUNT}"
+else
+    echo "[03-tts] ERROR: Voice embedding not found: ${VOICES_DIR}/${TTS_VOICE}" >&2
+    echo "[03-tts] Available p004 files:" >&2
+    find "${VOICES_DIR}" -path "*/p004/*" -type f 2>/dev/null || echo "None found" >&2
+    exit 1
+fi
+
 # Show auth configuration so you know if the server requires API keys
 echo "[03-tts] Auth configuration:"
 grep -n 'authorized_ids' "$CFG" || echo "No auth configured (server is open)"
@@ -143,3 +159,8 @@ echo "[03-tts] Logs: ${LOG_DIR}/tts-server.log"
 echo "[03-tts] GPU/device initialization:"
 sleep 1
 tail -n +1 "${LOG_DIR}/tts-server.log" | grep -E "CUDA|Cuda|device|loading" -n || true
+
+# Show voice loading hints from the log
+echo "[03-tts] Voice loading hints:"
+sleep 1  # Give server a moment to log voice initialization
+tail -n +1 "${LOG_DIR}/tts-server.log" | grep -E "voice|embedding|p004|safetensors|default_voice" -n || echo "No voice loading logs found yet"
