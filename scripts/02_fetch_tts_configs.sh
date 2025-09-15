@@ -90,16 +90,6 @@ log_folder = "\$HOME/tmp/moshi-server-logs"
 n_q = 32
 voice_folder = "${VOICE_FOLDER_PATTERN}"
 default_voice = "${VOICE_REL_BASE}"
-
-interleaved_text_only = 2
-# Balanced padding for natural speech rhythm without sacrificing too much latency
-initial_padding = 6
-final_padding = 6
-max_padding = 12
-# keep padding_between at default unless you're chasing artifacts
-
-temp = 0.2
-seed = 42
 EOF
 
 echo "[02-tts] Wrote ${DEST_CFG}"

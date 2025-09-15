@@ -43,8 +43,8 @@ def _ws_url(server: str, voice_path: Optional[str]) -> str:
         qp.append(f"voice={quote(voice_path)}")
     qp.append("format=PcmMessagePack")
     # Let server use default seq_len instead of constraining to 128
-    qp.append("temp=0.2")
-    qp.append("seed=42")
+    # qp.append("temp=0.2")
+    # qp.append("seed=42")
     return f"{base}/api/tts_streaming?{'&'.join(qp)}"
 
 

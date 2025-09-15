@@ -56,8 +56,8 @@ def _ws_url(server: str, voice_path: Optional[str]) -> str:
     qp: List[str] = [
         "format=PcmMessagePack",
         # Let server use default seq_len instead of constraining to 128
-        "temp=0.2",
-        "seed=42",
+        # "temp=0.2",
+        # "seed=42",
     ]
     # Temporarily comment out voice parameter for debugging
     if voice_path:
