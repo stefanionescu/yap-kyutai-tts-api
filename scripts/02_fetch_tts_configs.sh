@@ -76,3 +76,23 @@ except Exception as e:
 PY
   echo "[02-tts] Voices download completed"
 fi
+
+# Ensure the p004 embedding exists locally; some snapshots may miss it on first pass
+P004_DIR="${VOICES_DIR}/ears/p004"
+mkdir -p "${P004_DIR}"
+P004_EMB_COUNT=$(find "${P004_DIR}" -maxdepth 1 -type f -name "*.safetensors" | wc -l)
+if [ "${P004_EMB_COUNT}" -eq 0 ]; then
+  echo "[02-tts] Ensuring p004 voice embedding is present"
+  export VOICES_DIR
+  "${ROOT_DIR}/.venv/bin/python" - <<'PY'
+import os, sys
+dst = os.environ.get('VOICES_DIR')
+try:
+    from huggingface_hub import snapshot_download
+    snapshot_download('kyutai/tts-voices', local_dir=dst, local_dir_use_symlinks=False,
+                      resume_download=True, allow_patterns=['ears/p004/*'])
+    print('p004 voice ensured.')
+except Exception as e:
+    print(f'[02-tts] WARNING: could not ensure p004 voice: {e}')
+PY
+fi
