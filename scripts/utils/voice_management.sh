@@ -16,7 +16,6 @@ validate_all_voices() {
     "ears/p081/freeform_speech_01.wav"
     "ears/p086/freeform_speech_01.wav"
     "ears/p100/freeform_speech_01.wav"
-    "voice-donations/boom"
   )
   
   log_info "$script_name" "Validating required voice files..."

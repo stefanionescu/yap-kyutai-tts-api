@@ -5,7 +5,7 @@
 ## ⚡ **Key Features**
 - **🤖 Model**: `kyutai/tts-1.6b-en_fr` (English & French, 1.6B parameters)
 - **🎯 Performance**: Optimized for L40S GPUs with CUDA acceleration
-- **🔊 Multi-Voice**: 7 different voices supported out-of-the-box
+- **🔊 Multi-Voice**: 6 different voices supported out-of-the-box
 - **🚀 High Throughput**: Batched processing with 24 concurrent workers
 - **📦 Modular**: Clean, maintainable script architecture
 - **🔒 Secure**: Token-based authentication support
@@ -82,7 +82,6 @@
 - `ears/p081/freeform_speech_01.wav` 
 - `ears/p086/freeform_speech_01.wav`
 - `ears/p100/freeform_speech_01.wav`
-- `voice-donations/boom`
 
 ## 🚀 **Quick Start**
 
@@ -100,7 +99,7 @@ bash scripts/main.sh
 1. **🔍 Token Validation**: Checks HF_TOKEN before any downloads
 2. **📦 System Setup**: Rust toolchain, Python venv, system packages  
 3. **⬇️ Model Download**: `kyutai/tts-1.6b-en_fr` (1.6B English/French)
-4. **🎵 Voice Download**: All 7 supported voices with validation
+4. **🎵 Voice Download**: All 6 supported voices with validation
 5. **⚙️ Config Generation**: Optimized TOML with `n_q=24`, `batch_size=24`
 6. **🔨 Server Build**: Native Rust `moshi-server` with CUDA features
 7. **🚀 Server Start**: tmux session with health monitoring
@@ -285,7 +284,7 @@ curl -H "kyutai-api-key: your-secret-token" http://localhost:8089/api/build_info
 - **GPU Memory**: Monitor with `nvidia-smi` - 1.6B model needs ~6GB
 - **Concurrency**: Start with defaults, scale up gradually  
 - **Batching**: Higher batch size = better throughput, higher latency
-- **Voices**: All 7 voices are validated on startup
+- **Voices**: All 6 voices are validated on startup
 
 ---
 

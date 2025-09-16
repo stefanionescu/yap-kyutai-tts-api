@@ -90,7 +90,6 @@ default_voice = "${VOICE_REL_BASE}"
 # - ears/p081/freeform_speech_01.wav
 # - ears/p086/freeform_speech_01.wav
 # - ears/p100/freeform_speech_01.wav
-# - voice-donations/boom
 EOF
 
 log_success "$SCRIPT_NAME" "Wrote ${DEST_CFG}"
