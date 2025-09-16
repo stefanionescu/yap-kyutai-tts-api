@@ -1,191 +1,91 @@
 #!/usr/bin/env bash
 set -euo pipefail
-source "$(dirname "$0")/env.sh"
 
-echo "[03-tts] Preparing environment"
+# Load environment and utility modules
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "$SCRIPT_DIR/env.sh"
+source "$SCRIPT_DIR/utils/common.sh"
+source "$SCRIPT_DIR/utils/voice_management.sh"
+source "$SCRIPT_DIR/utils/server_operations.sh"
+source "$SCRIPT_DIR/utils/system_setup.sh"
+
+SCRIPT_NAME="03-tts"
+
+log_info "$SCRIPT_NAME" "Preparing environment"
 
 export PATH="${CUDA_PREFIX:-/usr/local/cuda}/bin:$HOME/.cargo/bin:$HOME/.local/bin:$PATH"
 export CUDARC_NVRTC_PATH="${CUDARC_NVRTC_PATH:-${CUDA_PREFIX:-/usr/local/cuda}/lib64/libnvrtc.so}"
 export HF_HOME HF_HUB_ENABLE_HF_TRANSFER
 
-# Threading and allocator caps to reduce CPU thrash and make latency predictable
-export RAYON_NUM_THREADS="${TTS_RAYON_THREADS:-1}"
-export TOKIO_WORKER_THREADS="${TTS_TOKIO_THREADS:-$(nproc --all 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 16)}"
-export MALLOC_ARENA_MAX="${MALLOC_ARENA_MAX:-2}"
-export OMP_NUM_THREADS="${OMP_NUM_THREADS:-1}"
-export MKL_NUM_THREADS="${MKL_NUM_THREADS:-1}"
-# Bind OpenMP threads compactly and avoid oversubscription on Linux
-export OMP_PROC_BIND="${OMP_PROC_BIND:-close}"
-export OMP_PLACES="${OMP_PLACES:-cores}"
-export KMP_BLOCKTIME="${KMP_BLOCKTIME:-0}"
-# Trace logging is expensive under load; keep it lean in benchmarks
-# For pure benchmarks, drop to warn level to minimize critical path overhead
-export RUST_LOG="${RUST_LOG:-warn,hyper=warn,axum=warn}"
-export RUST_BACKTRACE="${RUST_BACKTRACE:-full}"
-
-# GPU concurrency knobs: raise to 64 to help avoid contention under bursts
-export CUDA_DEVICE_MAX_CONNECTIONS="${CUDA_DEVICE_MAX_CONNECTIONS:-64}"
-unset CUDA_LAUNCH_BLOCKING || true
-export CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-0}"
-export CUDA_DEVICE_ORDER="${CUDA_DEVICE_ORDER:-PCI_BUS_ID}"
-
-# PyTorch CUDA allocator tuning for smoother latency under bursts
-export PYTORCH_CUDA_ALLOC_CONF="${PYTORCH_CUDA_ALLOC_CONF:-expandable_segments:True,max_split_size_mb:64}"
-
-# Disable Torch Inductor to improve first-call TTFB for short utterances
-# TorchInductor compilation overhead hurts cold start performance
-export TORCHINDUCTOR_DISABLE="${TORCHINDUCTOR_DISABLE:-1}"
-export PYTORCH_JIT="${PYTORCH_JIT:-0}"
+# Setup server environment variables
+setup_server_environment "$SCRIPT_NAME"
 
 CFG="${TTS_CONFIG}"
 LOG_DIR="${TTS_LOG_DIR}"
 SESSION="${TTS_TMUX_SESSION}"
 PORT="${TTS_PORT}"
 ADDR="${TTS_ADDR}"
-mkdir -p "${LOG_DIR}"
+PYTHON_BIN="${ROOT_DIR}/.venv/bin/python"
+ensure_dir "${LOG_DIR}"
 
-echo "[03-tts] Starting moshi TTS server (local build)…"
-echo "[03-tts] Using config: ${CFG}"
-echo "[03-tts] ROOT_DIR: ${ROOT_DIR}"
+log_info "$SCRIPT_NAME" "Starting moshi TTS server (local build)…"
+log_info "$SCRIPT_NAME" "Using config: ${CFG}"
+log_info "$SCRIPT_NAME" "ROOT_DIR: ${ROOT_DIR}"
 
 # Debug: Show voice and model configuration
-echo "[03-tts] Voice & model config lines:"
-grep -nE 'hf_repo|n_q|batch_size|voice_folder|default_voice|text_tokenizer_file|cfg_is_no_text|padding_between|cfg_coef|log_folder|hf-snapshot' "${CFG}" || echo "No relevant config found"
-echo "[03-tts] Reusing config at ${CFG} (no re-generation here)"
+log_info "$SCRIPT_NAME" "Voice & model config lines:"
+grep -nE 'hf_repo|n_q|batch_size|voice_folder|default_voice|text_tokenizer_file|cfg_is_no_text|padding_between|cfg_coef|log_folder|hf-snapshot' "${CFG}" >&2 || log_info "$SCRIPT_NAME" "No relevant config found"
+log_info "$SCRIPT_NAME" "Reusing config at ${CFG} (no re-generation here)"
 
-echo "[03-tts] Verifying voice embedding (.safetensors):"
-echo "[03-tts] Expected: ${VOICES_DIR}/${TTS_VOICE}"
-if [ -f "${VOICES_DIR}/${TTS_VOICE}" ]; then
-    echo "[03-tts] ✓ Voice embedding found:"
-    ls -lh "${VOICES_DIR}/${TTS_VOICE}"
-    # Count available p004 embeddings
-    P004_COUNT=$(find "${VOICES_DIR}/ears/p004" -maxdepth 1 -name "*.safetensors" 2>/dev/null | wc -l)
-    echo "[03-tts] p004 embeddings available: ${P004_COUNT}"
-else
-    echo "[03-tts] ERROR: Voice embedding not found: ${VOICES_DIR}/${TTS_VOICE}" >&2
-    echo "[03-tts] Available p004 files:" >&2
-    find "${VOICES_DIR}" -path "*/p004/*" -type f 2>/dev/null || echo "None found" >&2
+# Validate all required voices are available before starting server
+log_info "$SCRIPT_NAME" "Validating all required voices are available..."
+if ! validate_all_voices "$SCRIPT_NAME" "$VOICES_DIR"; then
+    log_error "$SCRIPT_NAME" "Required voices missing. Please run 02_fetch_tts_configs.sh first."
+    exit 1
+fi
+
+# Verify specific voice embedding exists
+if ! verify_voice_embedding "$SCRIPT_NAME" "$VOICES_DIR" "$TTS_VOICE"; then
     exit 1
 fi
 
 # Show auth configuration so you know if the server requires API keys
-echo "[03-tts] Auth configuration:"
-grep -n 'authorized_ids' "$CFG" || echo "No auth configured (server is open)"
+log_info "$SCRIPT_NAME" "Auth configuration:"
+grep -n 'authorized_ids' "$CFG" >&2 || log_info "$SCRIPT_NAME" "No auth configured (server is open)"
 
-# Ensure Python libdir is on LD_LIBRARY_PATH for the Rust server
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-PY_BIN="${REPO_ROOT}/.venv/bin/python"
-if [ -x "${PY_BIN}" ]; then
-  PY_LIBDIR="$(${PY_BIN} - <<'PY'
-import sysconfig; print(sysconfig.get_config_var("LIBDIR") or "")
-PY
-)"
-else
-  PY_LIBDIR="$(python - <<'PY'
-import sysconfig; print(sysconfig.get_config_var("LIBDIR") or "")
-PY
-)"
-fi
-if [ -n "${PY_LIBDIR}" ]; then
-  export LD_LIBRARY_PATH="${PY_LIBDIR}:${LD_LIBRARY_PATH:-}"
-fi
+# Setup Python library paths for Rust runtime
+setup_python_lib_paths "$SCRIPT_NAME" "$PYTHON_BIN"
 
-# Ensure the embedded Python used by pyo3 points to our venv
-export PYO3_PYTHON="${PY_BIN}"
-# Use base Python stdlib for encodings, and the venv site-packages for deps
-BASE_PREFIX="$(${PY_BIN} - <<'PY'
-import sys
-print(sys.base_prefix)
-PY
-)"
-PY_SITE_PKGS="$(${PY_BIN} - <<'PY'
-import site
-paths = []
-paths.extend([p for p in site.getsitepackages() if 'site-packages' in p])
-try:
-    paths.append(site.getusersitepackages())
-except Exception:
-    pass
-print(':'.join(paths))
-PY
-)"
-export PYTHONHOME="${BASE_PREFIX}"
-export PYTHONPATH="${PY_SITE_PKGS}:${PYTHONPATH:-}"
-export PYTHONNOUSERSITE=1
-
-# Prefer TF32 for faster matmuls on Ampere+ (harmless on others)
-export NVIDIA_TF32_OVERRIDE="${NVIDIA_TF32_OVERRIDE:-1}"
-export TORCH_ALLOW_TF32_CUBLAS="${TORCH_ALLOW_TF32_CUBLAS:-1}"
-export TORCH_ALLOW_TF32_CUDNN="${TORCH_ALLOW_TF32_CUDNN:-1}"
-
-# Favor deterministic cublas workspace to reduce rare latency spikes
-export CUBLAS_WORKSPACE_CONFIG="${CUBLAS_WORKSPACE_CONFIG:-:4096:8}"
-
-# Build local moshi-server binary from the checked-out repo to ensure we use local sources
-MOSHI_ROOT="${REPO_ROOT}/moshi"
-if [ -d "${MOSHI_ROOT}/rust/moshi-server" ]; then
-  echo "[03-tts] Building local moshi-server with CUDA…"
-  (cd "${MOSHI_ROOT}/rust/moshi-server" && env PYO3_PYTHON="${PYO3_PYTHON}" cargo clean && env PYO3_PYTHON="${PYO3_PYTHON}" cargo build -r --features=cuda | cat)
-  MOSHI_BIN="${MOSHI_ROOT}/rust/target/release/moshi-server"
-  if [ ! -x "$MOSHI_BIN" ]; then
-    # Some setups place target at repo root
-    MOSHI_BIN="${MOSHI_ROOT}/rust/target/release/moshi-server"
-  fi
-else
-  echo "[03-tts] ERROR: Local moshi repo not found at ${MOSHI_ROOT}." >&2
-  exit 1
-fi
-
-# Prefer tmux; fallback to nohup if tmux not installed
-TMUX_BIN="${TMUX_BIN:-tmux}"
-if command -v "${TMUX_BIN}" >/dev/null 2>&1; then
-  echo "[03-tts] Using tmux session '${SESSION}'"
-  ${TMUX_BIN} has-session -t "${SESSION}" 2>/dev/null && ${TMUX_BIN} kill-session -t "${SESSION}"
-  # Raise file descriptor limit for high concurrency
-  ulimit -n 1048576 || true
-  ${TMUX_BIN} new-session -d -s "${SESSION}" \
-    "cd '${REPO_ROOT}' && env LD_LIBRARY_PATH='${LD_LIBRARY_PATH}' PYO3_PYTHON='${PYO3_PYTHON}' RAYON_NUM_THREADS='${RAYON_NUM_THREADS}' TOKIO_WORKER_THREADS='${TOKIO_WORKER_THREADS}' MALLOC_ARENA_MAX='${MALLOC_ARENA_MAX}' RUST_LOG='${RUST_LOG}' RUST_BACKTRACE='${RUST_BACKTRACE}' CUDA_DEVICE_MAX_CONNECTIONS='${CUDA_DEVICE_MAX_CONNECTIONS}' CUDA_VISIBLE_DEVICES='${CUDA_VISIBLE_DEVICES}' CUDA_DEVICE_ORDER='${CUDA_DEVICE_ORDER}' NVIDIA_TF32_OVERRIDE='${NVIDIA_TF32_OVERRIDE}' TORCH_ALLOW_TF32_CUBLAS='${TORCH_ALLOW_TF32_CUBLAS}' TORCH_ALLOW_TF32_CUDNN='${TORCH_ALLOW_TF32_CUDNN}' TORCHINDUCTOR_DISABLE='${TORCHINDUCTOR_DISABLE}' PYTORCH_JIT='${PYTORCH_JIT}' '${MOSHI_BIN}' worker --config '${CFG}' --addr '${ADDR}' --port '${PORT}' 2>&1 | tee '${LOG_DIR}/tts-server.log'"
-else
-  echo "[03-tts] tmux not found; using nohup fallback"
-  ulimit -n 1048576 || true
-  nohup sh -c "cd '${REPO_ROOT}' && env LD_LIBRARY_PATH='${LD_LIBRARY_PATH}' PYO3_PYTHON='${PYO3_PYTHON}' RAYON_NUM_THREADS='${RAYON_NUM_THREADS}' TOKIO_WORKER_THREADS='${TOKIO_WORKER_THREADS}' MALLOC_ARENA_MAX='${MALLOC_ARENA_MAX}' RUST_LOG='${RUST_LOG}' RUST_BACKTRACE='${RUST_BACKTRACE}' CUDA_DEVICE_MAX_CONNECTIONS='${CUDA_DEVICE_MAX_CONNECTIONS}' CUDA_VISIBLE_DEVICES='${CUDA_VISIBLE_DEVICES}' CUDA_DEVICE_ORDER='${CUDA_DEVICE_ORDER}' NVIDIA_TF32_OVERRIDE='${NVIDIA_TF32_OVERRIDE}' TORCH_ALLOW_TF32_CUBLAS='${TORCH_ALLOW_TF32_CUBLAS}' TORCH_ALLOW_TF32_CUDNN='${TORCH_ALLOW_TF32_CUDNN}' TORCHINDUCTOR_DISABLE='${TORCHINDUCTOR_DISABLE}' PYTORCH_JIT='${PYTORCH_JIT}' '${MOSHI_BIN}' worker --config '${CFG}' --addr '${ADDR}' --port '${PORT}'" \
-    > "${LOG_DIR}/tts-server.log" 2>&1 &
-fi
-
-# Wait for the port to open
-for i in $(seq 1 180); do
-  (exec 3<>/dev/tcp/127.0.0.1/${PORT}) >/dev/null 2>&1 && { exec 3>&-; break; }
-  sleep 1
-  if [ $i -eq 180 ]; then
-    echo "[03-tts] ERROR: TTS server didn’t open port ${PORT} in time."
-    tail -n 50 "${LOG_DIR}/tts-server.log" || true
+# Build local moshi-server binary from the checked-out repo
+MOSHI_BIN=$(build_moshi_server "$SCRIPT_NAME" "$ROOT_DIR" "$PYTHON_BIN")
+if [ $? -ne 0 ] || [ ! -x "$MOSHI_BIN" ]; then
+    log_error "$SCRIPT_NAME" "Failed to build moshi-server"
     exit 1
-  fi
-done
+fi
 
-echo "[03-tts] Bound at ws://${ADDR}:${PORT}"
-echo "[03-tts] Logs: ${LOG_DIR}/tts-server.log"
+# Start server using tmux or nohup
+LOG_FILE="${LOG_DIR}/tts-server.log"
+if start_server_tmux "$SCRIPT_NAME" "$SESSION" "$MOSHI_BIN" "$CFG" "$ADDR" "$PORT" "$ROOT_DIR" "$LOG_FILE"; then
+    log_success "$SCRIPT_NAME" "Server started in tmux session"
+elif start_server_nohup "$SCRIPT_NAME" "$MOSHI_BIN" "$CFG" "$ADDR" "$PORT" "$ROOT_DIR" "$LOG_FILE"; then
+    log_success "$SCRIPT_NAME" "Server started with nohup"
+else
+    log_error "$SCRIPT_NAME" "Failed to start server"
+    exit 1
+fi
 
-# Wait for warmup completion message to ensure weights and caches are ready
-echo "[03-tts] Waiting for warmup completion ('ready to roll.')…"
-for i in $(seq 1 120); do
-  if grep -q "ready to roll." "${LOG_DIR}/tts-server.log" 2>/dev/null; then
-    echo "[03-tts] Warmup complete. Server is ready."
-    break
-  fi
-  sleep 1
-  if [ $i -eq 120 ]; then
-    echo "[03-tts] WARNING: Did not see 'ready to roll.' in time; continuing anyway."
-  fi
-done
+# Wait for server to be ready
+if ! wait_for_server_ready "$SCRIPT_NAME" "$PORT" 180 "$LOG_FILE"; then
+    exit 1
+fi
 
-# Always confirm GPU use at boot - Candle backend logs which device it picked
-echo "[03-tts] GPU/device initialization:"
-sleep 1
-tail -n +1 "${LOG_DIR}/tts-server.log" | grep -E "CUDA|Cuda|device|loading" -n || true
+log_success "$SCRIPT_NAME" "Bound at ws://${ADDR}:${PORT}"
+log_info "$SCRIPT_NAME" "Logs: ${LOG_FILE}"
 
-# Show voice loading hints from the log
-echo "[03-tts] Voice loading hints:"
-sleep 1  # Give server a moment to log voice initialization
-tail -n +1 "${LOG_DIR}/tts-server.log" | grep -E "voice|embedding|p004|safetensors|default_voice" -n || echo "No voice loading logs found yet"
+# Show GPU/device initialization logs
+show_server_logs "$SCRIPT_NAME" "$LOG_FILE" "CUDA|Cuda|device|loading" 10
+log_info "$SCRIPT_NAME" "GPU/device initialization shown above"
+
+# Show voice loading hints from the log  
+show_server_logs "$SCRIPT_NAME" "$LOG_FILE" "voice|embedding|p004|safetensors|default_voice" 10
+log_info "$SCRIPT_NAME" "Voice loading hints shown above"

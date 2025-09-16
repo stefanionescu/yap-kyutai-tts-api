@@ -60,6 +60,10 @@ TTS_RAYON_THREADS=${TTS_RAYON_THREADS:-1}
 # Tokio runtime worker threads; default to CPU cores if unset
 TTS_TOKIO_THREADS=${TTS_TOKIO_THREADS:-}
 
+# HuggingFace Hub settings to avoid throttling bursts
+export HF_HUB_DISABLE_XET=${HF_HUB_DISABLE_XET:-1}
+export HF_HUB_ENABLE_HF_TRANSFER=${HF_HUB_ENABLE_HF_TRANSFER:-0}
+
 # Linux allocator + OpenMP caps for stable latency under load
 export MALLOC_ARENA_MAX=${MALLOC_ARENA_MAX:-2}
 export OMP_NUM_THREADS=${OMP_NUM_THREADS:-1}

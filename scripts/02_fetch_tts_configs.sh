@@ -1,61 +1,63 @@
 #!/usr/bin/env bash
 set -euo pipefail
-source "$(dirname "$0")/env.sh"
-echo "[02-tts] Preparing config & voices (no DSM dependency)"
-echo "[02-tts] ROOT_DIR: ${ROOT_DIR}"
-echo "[02-tts] VOICES_DIR: ${VOICES_DIR}"
-echo "[02-tts] TTS_CONFIG: ${TTS_CONFIG}"
+
+# Load environment and utility modules
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "$SCRIPT_DIR/env.sh"
+source "$SCRIPT_DIR/utils/common.sh"
+source "$SCRIPT_DIR/utils/hf_operations.sh"
+source "$SCRIPT_DIR/utils/voice_management.sh"
+
+SCRIPT_NAME="02-tts"
+
+# Check HF_TOKEN before proceeding with HuggingFace operations
+check_hf_token "$SCRIPT_NAME"
+
+log_info "$SCRIPT_NAME" "Preparing config & voices (no DSM dependency)"
+log_info "$SCRIPT_NAME" "ROOT_DIR: ${ROOT_DIR}"
+log_info "$SCRIPT_NAME" "VOICES_DIR: ${VOICES_DIR}"
+log_info "$SCRIPT_NAME" "TTS_CONFIG: ${TTS_CONFIG}"
 
 # Copy or reuse the reference TTS config; prefer reusing existing
 DEST_CFG="${TTS_CONFIG}"
 LEGACY_CFG="${ROOT_DIR}/.data/server/config-tts-en-hf.toml"
 if [ -f "$LEGACY_CFG" ] && [ ! -f "$DEST_CFG" ]; then
-  echo "[02-tts] Migrating legacy config name: $LEGACY_CFG -> $DEST_CFG"
-  mkdir -p "$(dirname "$DEST_CFG")"
+  log_info "$SCRIPT_NAME" "Migrating legacy config name: $LEGACY_CFG -> $DEST_CFG"
+  ensure_dir "$(dirname "$DEST_CFG")"
   mv "$LEGACY_CFG" "$DEST_CFG"
 fi
 
-mkdir -p "$(dirname "${DEST_CFG}")"
+ensure_dir "$(dirname "${DEST_CFG}")"
 
 # Download 1.6B model locally to avoid hf:// runtime indirection
 MODEL_DIR="${ROOT_DIR}/.data/models/tts-1.6b-en_fr"
-mkdir -p "${MODEL_DIR}"
+PYTHON_BIN="${ROOT_DIR}/.venv/bin/python"
+
 # Snapshot once; reuse forever
 if [ ! -f "${MODEL_DIR}/tokenizer_spm_8k_en_fr_audio.model" ]; then
-  echo "[02-tts] Downloading tts-1.6b-en_fr model to ${MODEL_DIR}"
-  export MODEL_DIR
-  "${ROOT_DIR}/.venv/bin/python" - <<'PY'
-import os
-from huggingface_hub import snapshot_download
-dst = os.environ.get("MODEL_DIR")
-if not dst:
-    print("ERROR: MODEL_DIR not set")
-    exit(1)
-print(f"Downloading tts-1.6b-en_fr to {dst}")
-snapshot_download("kyutai/tts-1.6b-en_fr", local_dir=dst, local_dir_use_symlinks=False, resume_download=True)
-print(f"Downloaded tts-1.6b-en_fr to {dst}")
-PY
-  echo "[02-tts] Model download completed"
+  export HF_REPO="kyutai/tts-1.6b-en_fr"
+  download_hf_model "$SCRIPT_NAME" "kyutai/tts-1.6b-en_fr" "$MODEL_DIR" "$PYTHON_BIN"
+  
   # Verify the tokenizer file exists
   if [ ! -f "${MODEL_DIR}/tokenizer_spm_8k_en_fr_audio.model" ]; then
-    echo "[02-tts] ERROR: Tokenizer file not found after download: ${MODEL_DIR}/tokenizer_spm_8k_en_fr_audio.model"
-    echo "[02-tts] Falling back to hf:// path"
+    log_error "$SCRIPT_NAME" "Tokenizer file not found after download: ${MODEL_DIR}/tokenizer_spm_8k_en_fr_audio.model"
+    log_warning "$SCRIPT_NAME" "Falling back to hf:// path"
     TEXT_SPM="hf://kyutai/tts-1.6b-en_fr/tokenizer_spm_8k_en_fr_audio.model"
   else
-    echo "[02-tts] ✓ Tokenizer verified: ${MODEL_DIR}/tokenizer_spm_8k_en_fr_audio.model"
+    log_success "$SCRIPT_NAME" "Tokenizer verified: ${MODEL_DIR}/tokenizer_spm_8k_en_fr_audio.model"
     TEXT_SPM="${MODEL_DIR}/tokenizer_spm_8k_en_fr_audio.model"
   fi
 else
-  echo "[02-tts] Model already present at ${MODEL_DIR}"
+  log_info "$SCRIPT_NAME" "Model already present at ${MODEL_DIR}"
   TEXT_SPM="${MODEL_DIR}/tokenizer_spm_8k_en_fr_audio.model"
 fi
 
-VOICE_REL="${TTS_VOICE:-ears/p004/freeform_speech_01.wav}"
+VOICE_REL="${TTS_VOICE:-ears/p004/freeform_speech_01.wav.1e68beda@240.safetensors}"
 VOICE_FOLDER_PATTERN="${VOICES_DIR}"
 BS_VAL="${TTS_BATCH_SIZE:-24}"
 VOICE_REL_BASE="${VOICE_REL}"
 
-echo "[02-tts] Writing minimal server config to ${DEST_CFG}"
+log_info "$SCRIPT_NAME" "Writing minimal server config to ${DEST_CFG}"
 cat > "${DEST_CFG}" <<EOF
 static_dir = "./static/"
 log_dir = "\$HOME/tmp/tts-logs"
@@ -81,53 +83,20 @@ log_folder = "\$HOME/tmp/moshi-server-logs"
 n_q = 24
 voice_folder = "${VOICE_FOLDER_PATTERN}"
 default_voice = "${VOICE_REL_BASE}"
+# All required voices are available for generation:
+# - ears/p058/freeform_speech_01.wav
+# - ears/p059/freeform_speech_01.wav
+# - ears/p068/freeform_speech_01.wav
+# - ears/p081/freeform_speech_01.wav
+# - ears/p086/freeform_speech_01.wav
+# - ears/p100/freeform_speech_01.wav
+# - voice-donations/boom
 EOF
 
-echo "[02-tts] Wrote ${DEST_CFG}"
+log_success "$SCRIPT_NAME" "Wrote ${DEST_CFG}"
 
-# Download the entire voices repository once (all datasets) and reuse thereafter
-VOICES_DIR="${VOICES_DIR:-${ROOT_DIR}/.data/voices}"
-mkdir -p "${VOICES_DIR}"
+# Ensure voice availability with validation and re-download if needed
+ensure_voice_availability "$SCRIPT_NAME" "$VOICES_DIR" "$PYTHON_BIN"
 
-# Check if voices actually exist (not just empty directory)
-VOICE_COUNT=$(find "${VOICES_DIR}" -type f \( -name '*.safetensors' -o -name '*.wav' \) | wc -l)
-if [ "$VOICE_COUNT" -gt 0 ]; then
-  echo "[02-tts] Voices already present in ${VOICES_DIR} ($VOICE_COUNT files, skip download)"
-else
-  echo "[02-tts] Downloading ALL voices to ${VOICES_DIR} (kyutai/tts-voices)"
-  export VOICES_DIR MODEL_DIR
-  "${ROOT_DIR}/.venv/bin/python" - <<'PY'
-import os, sys
-dst = os.environ.get('VOICES_DIR')
-model_dir = os.environ.get('MODEL_DIR')
-print(f'Downloading to: {dst}')
-try:
-    from huggingface_hub import snapshot_download
-    snapshot_download('kyutai/tts-voices', local_dir=dst, local_dir_use_symlinks=False, resume_download=True)
-    print('Voices snapshot downloaded.')
-except Exception as e:
-    print(f'[02-tts] ERROR downloading voices: {e}')
-    sys.exit(1)
-PY
-  echo "[02-tts] Voices download completed"
-fi
-
-# Ensure the p004 embedding exists locally; some snapshots may miss it on first pass
-P004_DIR="${VOICES_DIR}/ears/p004"
-mkdir -p "${P004_DIR}"
-P004_EMB_COUNT=$(find "${P004_DIR}" -maxdepth 1 -type f -name "*.safetensors" | wc -l)
-if [ "${P004_EMB_COUNT}" -eq 0 ]; then
-  echo "[02-tts] Ensuring p004 voice embedding is present"
-  export VOICES_DIR
-  "${ROOT_DIR}/.venv/bin/python" - <<'PY'
-import os, sys
-dst = os.environ.get('VOICES_DIR')
-try:
-    from huggingface_hub import snapshot_download
-    snapshot_download('kyutai/tts-voices', local_dir=dst, local_dir_use_symlinks=False,
-                      resume_download=True, allow_patterns=['ears/p004/*'])
-    print('p004 voice ensured.')
-except Exception as e:
-    print(f'[02-tts] WARNING: could not ensure p004 voice: {e}')
-PY
-fi
+# Ensure the p004 embedding exists locally; some snapshots may miss it on first pass  
+ensure_speaker_voice "$SCRIPT_NAME" "$VOICES_DIR" "ears/p004" "$PYTHON_BIN"
