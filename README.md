@@ -1,186 +1,311 @@
-# Yap TTS API
+# 🎤 Yap Kyutai TTS API
 
-This repo runs a Text-To-Speech (TTS) service using Kyutai's DSM. It runs the Kyutai Rust `moshi-server`.
+**Production-ready Text-To-Speech service** using Kyutai's state-of-the-art TTS models with the high-performance Rust `moshi-server`.
 
-- **Model**: `kyutai/tts-0.75b-en-public` (English-only)
-- **Defaults**: port `8089`, voice `ears/p004/freeform_speech_01.wav`
-- **Runtime**: Rust server launched via `uv run` (ensures Python deps are active)
+## ⚡ **Key Features**
+- **🤖 Model**: `kyutai/tts-1.6b-en_fr` (English & French, 1.6B parameters)
+- **🎯 Performance**: Optimized for L40S GPUs with CUDA acceleration
+- **🔊 Multi-Voice**: 7 different voices supported out-of-the-box
+- **🚀 High Throughput**: Batched processing with 24 concurrent workers
+- **📦 Modular**: Clean, maintainable script architecture
+- **🔒 Secure**: Token-based authentication support
 
-Do not run these scripts locally; they are intended for RunPod pods with a CUDA GPU.
+## 📋 **Specifications**
+- **Default Port**: `8089` 
+- **Default Voice**: `ears/p004/freeform_speech_01.wav`
+- **Batch Size**: `24` (optimized for throughput + latency)
+- **Workers**: `24` concurrent synthesis tasks
+- **Runtime**: Native Rust server with Python ML backend
 
-### What this provides
-- **Installer** for the Rust server and Python shim: `scripts/01_install_tts_server.sh`
-- **Config fetch & pin** to 0.75B EN and voice download: `scripts/02_fetch_tts_configs.sh`
-- **Server launcher** (tmux + health wait): `scripts/03_start_tts_server.sh`
-- **Smoke test** using DSM client (mandatory): `scripts/05_tts_smoke_test.sh`
-- **Test dependencies setup** with proper pip venv: `scripts/04_setup_test_deps.sh`
-- **Orchestrator**: `scripts/main.sh`
-- **Cleanup**: `scripts/stop.sh`
+> ⚠️ **RunPod Only**: These scripts are designed for RunPod pods with CUDA GPUs
 
-### Prerequisites (on RunPod)
-- NVIDIA GPU with CUDA 12.x available (NVRTC present). Scripts export `CUDARC_NVRTC_PATH`.
-- Outbound internet access to pull crates and Hugging Face assets.
-- Your existing `scripts/env.sh` (optional but supported). If it's missing, the scripts still run because `main.sh`/`stop.sh` guard their sourcing.
+## 🛠️ **What's Included**
 
-### Environment
-Edit `scripts/env.sh` to adjust ports and voice.
+### **Core Scripts** (Modular & Clean!)
+- **🔧 `01_install_tts_server.sh`**: System setup (Rust, Python, packages)
+- **📥 `02_fetch_tts_configs.sh`**: Model & voice downloads + config generation  
+- **🚀 `03_start_tts_server.sh`**: Server startup with health monitoring
+- **✅ `06_verify_config.sh`**: Complete system validation
+- **🧪 `05_tts_smoke_test.sh`**: Audio synthesis testing
+- **📦 `04_setup_test_deps.sh`**: Test environment setup
+- **🎵 `main.sh`**: One-command orchestrator  
+- **🛑 `stop.sh`**: Clean shutdown & cleanup
 
-Notes:
-- Data is stored inside this repo under `.data/` by default (not outside the repo):
-- Config: `.data/server/config-tts.toml` (override via `TTS_CONFIG`)
-- Logs: `.data/logs` (override via `TTS_LOG_DIR`)
-- Voices: `.data/voices` (override via `VOICES_DIR`)
-- DSM clone: `.data/delayed-streams-modeling` (override via `DSM_REPO_DIR`)
+### **Utility Modules** (`scripts/utils/`)
+- **`common.sh`**: Logging & utility functions
+- **`hf_operations.sh`**: HuggingFace downloads & token validation
+- **`voice_management.sh`**: Multi-voice validation & management
+- **`server_operations.sh`**: Server building & process management
+- **`system_setup.sh`**: Environment & dependency installation
+- **`verification.sh`**: Comprehensive system verification
 
-#### Tuning knobs (concurrency, batching, CPU caps)
-- **TTS_BATCH_SIZE**: default `64`. Controls dynamic batching for `/api/tts_streaming`.
-- **TTS_NUM_WORKERS**: default `12`. Sets `num_workers` in the server config (concurrent synth tasks).
-- **TTS_MAX_QUEUE_LEN**: default `256`. Sets `max_queue_len` (if supported) to absorb brief bursts.
-- **TTS_RAYON_THREADS**: default `1`. Caps Candle/Rayon CPU workers to avoid CPU thrash.
-- **TTS_TOKIO_THREADS**: default `4`. Tokio runtime worker threads.
-- **MALLOC_ARENA_MAX**: default `2`. Lower glibc arenas to reduce heap fragmentation under load.
-- **RUST_LOG**: default `info,moshi_server=debug,moshi=info`.
+## 📋 **Prerequisites**
 
-These are applied automatically by `scripts/02_fetch_tts_configs.sh` (for config keys) and `scripts/03_start_tts_server.sh` (for env vars).
+### **Hardware**
+- 🎮 **NVIDIA GPU** with CUDA 12.x (NVRTC required)
+- 💾 **8GB+ GPU Memory** (for 1.6B model)
+- 🌐 **Internet Access** (HuggingFace model downloads)
 
-### Install, start, and smoke test
-Authenticate with Hugging Face (to avoid 401/429) then run on the pod:
+### **Environment** 
+- 🔑 **HF_TOKEN** - **REQUIRED** HuggingFace token for model access
+- 🐧 **RunPod Environment** with root access
 
+## ⚙️ **Configuration**
+
+### **📁 Data Storage** (All local under `.data/`)
+| Component | Default Path | Override Variable |
+|-----------|--------------|-------------------|
+| **Config** | `.data/server/config-tts.toml` | `TTS_CONFIG` |
+| **Logs** | `.data/logs/` | `TTS_LOG_DIR` | 
+| **Voices** | `.data/voices/` | `VOICES_DIR` |
+| **Models** | `.data/models/` | - |
+
+### **🎛️ Performance Tuning** (Optimized for L40S)
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| **TTS_BATCH_SIZE** | `24` | Dynamic batching for `/api/tts_streaming` |
+| **TTS_NUM_WORKERS** | `24` | Concurrent synthesis tasks |
+| **TTS_MAX_QUEUE_LEN** | `32` | Request queue length for burst handling |
+| **TTS_RAYON_THREADS** | `1` | CPU threads (avoid GPU contention) |
+| **TTS_TOKIO_THREADS** | Auto | Async runtime threads |
+| **TTS_PORT** | `8089` | Server listening port |
+| **TTS_ADDR** | `0.0.0.0` | Server bind address |
+
+### **🤗 HuggingFace Settings** (Anti-throttling)
+- **HF_HUB_DISABLE_XET**: `1` (reduces parallelism)  
+- **HF_HUB_ENABLE_HF_TRANSFER**: `0` (disables XET transfers)
+
+### **🎵 Supported Voices** (Auto-validated)
+- `ears/p058/freeform_speech_01.wav` 
+- `ears/p059/freeform_speech_01.wav`
+- `ears/p068/freeform_speech_01.wav`
+- `ears/p081/freeform_speech_01.wav` 
+- `ears/p086/freeform_speech_01.wav`
+- `ears/p100/freeform_speech_01.wav`
+- `voice-donations/boom`
+
+## 🚀 **Quick Start**
+
+### **1️⃣ Set Your HuggingFace Token** (Required!)
 ```bash
-# 0) One-time before any scripts: set your HF token (prevents 401/429)
-export HF_TOKEN=<your-hf-token>
-# Optional: reduce parallelism and disable xet to avoid throttling bursts
-export HF_HUB_DISABLE_XET=1
-export HF_HUB_ENABLE_HF_TRANSFER=0
+export HF_TOKEN=<your-hf-token>  # Get from: https://huggingface.co/settings/tokens
+```
 
+### **2️⃣ One Command Deploy** 
+```bash
 bash scripts/main.sh
 ```
 
-What it does:
-- Creates a `.venv` at repo root and installs pinned Python deps using `uv`
-- Installs a pinned `moshi-server` version with CUDA support (`0.6.3` by default)
-- Clones DSM and writes `.data/server/config-tts.toml` with the model set to `kyutai/tts-0.75b-en-public`, and enforces Mimi `n_q = 16`
-- Starts the Rust server via `uv run --frozen moshi-server worker --config ... --addr ... --port ...` (tmux if available, else nohup)
-- Waits until the port is open
-- Runs `scripts/04_tts_smoke_test.sh` to synthesize to a WAV file at `.data/out.wav` (no playback on server)
-- Sets up test dependencies with proper pip in the venv via `scripts/05_setup_test_deps.sh`
+### **3️⃣ What Happens** ✨
+1. **🔍 Token Validation**: Checks HF_TOKEN before any downloads
+2. **📦 System Setup**: Rust toolchain, Python venv, system packages  
+3. **⬇️ Model Download**: `kyutai/tts-1.6b-en_fr` (1.6B English/French)
+4. **🎵 Voice Download**: All 7 supported voices with validation
+5. **⚙️ Config Generation**: Optimized TOML with `n_q=24`, `batch_size=24`
+6. **🔨 Server Build**: Native Rust `moshi-server` with CUDA features
+7. **🚀 Server Start**: tmux session with health monitoring
+8. **✅ Validation**: Complete system verification
+9. **🧪 Smoke Test**: Synthesis test to `.data/out.wav`  
+10. **📊 Test Setup**: Benchmark dependencies installation
 
-Performance defaults (safe for L40S):
-- `n_q = 16` enforced for Mimi (0.75B EN requirement)
-- `batch_size = 64` in `[modules.tts_py]`
-- `num_workers = 12` at top-level
-- `RAYON_NUM_THREADS=1`, `TOKIO_WORKER_THREADS=4`, `MALLOC_ARENA_MAX=2`
+### **Performance Profile** (L40S Optimized)
+- **Model**: 1.6B parameters, English + French
+- **Quantization**: `n_q = 24` (optimal quality/speed)  
+- **Concurrency**: 24 workers, batch size 24
+- **Memory**: CPU-efficient threading, minimal heap fragmentation
 
-Logs: `${TTS_LOG_DIR}/tts-server.log` (default `.data/logs/tts-server.log`).
+## 📊 **Monitoring & Logs**
 
-Tail the server logs during a run:
-
+### **📋 Server Logs**
 ```bash
+# 👀 Live monitoring  
 tail -f .data/logs/tts-server.log
-# or, if you customized TTS_LOG_DIR:
-tail -f "$TTS_LOG_DIR/tts-server.log"
-```
 
-Print the last 100 lines from the server log:
-
-```bash
+# 📜 Last 100 lines
 tail -n 100 .data/logs/tts-server.log
-# or, if you customized TTS_LOG_DIR:
-tail -n 100 "$TTS_LOG_DIR/tts-server.log"
+
+# 🔍 Search for errors
+grep -i "error\|fail\|warn" .data/logs/tts-server.log | tail -20
 ```
 
-### Benchmarks and warmup
-Two helper scripts generate audio to `.data/` and report useful metrics.
-
-The `scripts/main.sh` automatically sets up test dependencies after the smoke test. To run the benchmarks:
-
+### **✅ Health Check**  
 ```bash
-# Activate the venv (once per terminal session)
+# 🏥 Complete system verification
+bash scripts/06_verify_config.sh
+
+# 🌐 Quick connectivity test  
+curl -s http://127.0.0.1:8089/api/build_info
+```
+
+## 📈 **Performance Testing**
+
+### **🔥 Warmup & Benchmarks**
+```bash
+# 🚀 Activate environment  
 source .venv/bin/activate
 
-# Run tests using activated environment
+# 🔥 Model warmup (recommended first)
 python test/warmup.py
+
+# 📊 Performance benchmark
 python test/bench.py
-
-# Deactivate when done (optional)
-deactivate
 ```
 
-Optional flags:
-
+### **⚙️ Advanced Testing**
 ```bash
-# Warmup with flags (using direct python path)
-.venv/bin/python test/warmup.py --server 127.0.0.1:8089 \
+# 🎯 Custom warmup
+python test/warmup.py \
+  --server 127.0.0.1:8089 \
   --voice ".data/voices/ears/p004/freeform_speech_01.wav" \
-  --text "Warming up the model and caches."
+  --text "Custom warmup text here"
 
-# Benchmark with flags (using direct python path)
-.venv/bin/python test/bench.py --server 127.0.0.1:8089 \
-  --n 20 --concurrency 5 \
-  --voice ".data/voices/ears/p004/freeform_speech_01.wav" \
-  --text "Hello from Kyutai TTS." --text "Another line for the benchmark."
-
-# Or with activated venv:
-python test/warmup.py --server 127.0.0.1:8089 \
-  --voice ".data/voices/ears/p004/freeform_speech_01.wav"
+# 💪 Stress test  
+python test/bench.py \
+  --n 50 --concurrency 10 \
+  --voice ".data/voices/ears/p058/freeform_speech_01.wav" \
+  --text "Stress testing the TTS server" \
+  --text "Multiple text variations for testing"
 ```
 
-### Quick client (local venv)
-Run the streaming client from your machine with a lightweight venv (and make sure you set all Runpod params in .env first):
-
+### **🎵 Voice Testing**
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
+# 🔄 Test all supported voices
+for voice in ears/p058 ears/p059 ears/p068 ears/p081 ears/p086 ears/p100; do
+  python test/warmup.py --voice ".data/voices/$voice/freeform_speech_01.wav"
+done
+```
+
+## 🌐 **Remote Client Usage**
+
+### **💻 Local Machine Setup**
+```bash  
+# 🐍 Create local environment
+python3 -m venv .venv && source .venv/bin/activate
+
+# 📦 Install client dependencies  
 pip install -r requirements.txt
-export KYUTAI_API_KEY=<your-kyutai-api-key>
+
+# 🔑 Set API credentials (if auth enabled)
+export KYUTAI_API_KEY=<your-api-key>
+
+# 🚀 Connect to your RunPod server
 python test/client.py
 ```
 
-### Stop and clean up
-Stops the tmux session and removes caches and downloaded artifacts; preserves your repo and Jupyter/web console.
-
+### **🔐 Authentication Setup** 
 ```bash
-bash scripts/stop.sh
-# Also remove logs:
-PURGE_LOGS=1 bash scripts/stop.sh
+# On RunPod: Edit config to enable auth
+echo 'authorized_ids = ["your-secret-token"]' >> .data/server/config-tts.toml
+
+# Restart server  
+bash scripts/stop.sh && bash scripts/03_start_tts_server.sh
+
+# Client: Use the token
+export KYUTAI_API_KEY=your-secret-token
 ```
 
-Removed by `stop.sh` (safe cleanup):
-- `.venv`, `pyproject.toml`, `uv.lock` (unless `PURGE_VENV=0`)
-- Common caches: Hugging Face, Torch, uv, Cargo registry/git
+## 🛑 **Shutdown & Cleanup**
 
-Preserved by default (so re-runs don’t re-download):
-- Server config at `${TTS_CONFIG:-<repo>/.data/server/config-tts.toml}`
-- DSM clone at `${DSM_REPO_DIR:-<repo>/.data/delayed-streams-modeling}`
-- Voices at `${VOICES_DIR:-<repo>/.data/voices}`
+### **🔄 Standard Cleanup**
+```bash  
+bash scripts/stop.sh
+```
 
-Preserved:
-- This Git repo (working tree)
-- Jupyter and RunPod web console
+### **🧹 Deep Cleaning**  
+```bash
+# 📋 Also remove logs  
+PURGE_LOGS=1 bash scripts/stop.sh
 
-### Changing the voice
-Set `TTS_VOICE` in `scripts/env.sh` to any path from `kyutai/tts-voices` (e.g., `ears/p004/freeform_speech_01.wav`). `scripts/02_fetch_tts_configs.sh` will download it on first run.
+# 🗑️ Nuclear option (removes everything)
+PURGE_VENV=1 PURGE_LOGS=1 bash scripts/stop.sh
+```
 
-### Changing the port
-`TTS_PORT` in `scripts/env.sh` controls the server port (default `8089`).
+### **🔒 What Gets Removed/Preserved**
 
-### Versions pinned
-- `moshi-server`: `0.6.3` (edit `MOSHI_VERSION` in `scripts/01_install_tts_server.sh`)
-- Python manifests: from Moshi commit `aee53fc` (edit `MOSHI_REF` in `scripts/01_install_tts_server.sh`)
+| **Removed** (Safe Cleanup) | **Preserved** (Fast Restart) |
+|----------------------------|-------------------------------|
+| ❌ Python `.venv` | ✅ Downloaded models & voices |
+| ❌ Build caches | ✅ Server configuration |  
+| ❌ HuggingFace cache | ✅ Git repository |
+| ❌ Torch cache | ✅ Jupyter console |
+| ❌ tmux sessions | ✅ Log files (unless `PURGE_LOGS=1`) |
 
-### Auth header
-`moshi-server` does not read `YAP_API_KEY` from the environment. If you enable auth in the TOML, clients must send the header `kyutai-api-key: <token>`, and the token must be included in the config's `authorized_ids` list. If `authorized_ids` is empty or missing, the server is open.
+## 🎛️ **Customization**
 
-### Troubleshooting
-- "unrecognized arguments: worker": Ensure your PATH resolves the Rust `moshi-server` (not the Python CLI). The scripts install the Rust binary and run it via `uv`.
-- Port not opening: Check `${TTS_LOG_DIR}/tts-server.log`. Verify GPU/CUDA NVRTC is available and not in use by other processes.
-- HF 401 on model: `kyutai/tts-0.75b-en-public` is public; ensure internet and, if needed, set `HF_HOME` / `HUGGING_FACE_HUB_TOKEN` in the environment.
-- Slow or contended GPU: Avoid running STT and TTS on the same GPU concurrently.
-- Many errors at higher concurrency: raise `TTS_BATCH_SIZE` and/or `TTS_NUM_WORKERS`; keep `TTS_RAYON_THREADS` low; consider increasing `TTS_MAX_QUEUE_LEN`. Ensure client sends `kyutai-api-key` matching `authorized_ids`. Increase client `open_timeout/ping_interval/ping_timeout` to 30s for bursts.
+### **🎵 Change Voice**  
+```bash
+# Edit scripts/env.sh
+TTS_SPEAKER_DIR=ears/p058  # Choose from supported voices
+# Restart: bash scripts/stop.sh && bash scripts/03_start_tts_server.sh
+```
 
-### Security
-To restrict access, set `authorized_ids = ["<token>"]` in your TOML config, and have clients send `kyutai-api-key: <token>`.
+### **🌐 Change Port**
+```bash  
+# Edit scripts/env.sh
+TTS_PORT=8090  # Your custom port
+# Restart server
+```
+
+### **🔧 Performance Tuning**
+```bash
+# Edit scripts/env.sh - Example for high-end GPU:
+TTS_BATCH_SIZE=48          # Larger batches
+TTS_NUM_WORKERS=32         # More workers  
+TTS_MAX_QUEUE_LEN=64       # Bigger queue
+```
+
+### **📋 Version Info**
+- **Model**: `kyutai/tts-1.6b-en_fr` (1.6B parameters)
+- **Moshi**: Latest from GitHub (`aee53fc` commit)
+- **Quantization**: `n_q = 24` (1.6B optimal)
+
+## 🔐 **Security & Authentication**
+
+### **🔒 Enable Authentication**
+```bash
+# Add to .data/server/config-tts.toml
+authorized_ids = ["your-secret-token"]
+
+# Client usage  
+curl -H "kyutai-api-key: your-secret-token" http://localhost:8089/api/build_info
+```
+
+## 🚨 **Troubleshooting**
+
+| **Problem** | **Solution** |
+|-------------|--------------|
+| 🔑 **"HF_TOKEN not set"** | `export HF_TOKEN=<token>` before running scripts |
+| 🚫 **"Port not opening"** | Check `.data/logs/tts-server.log`, verify GPU availability |
+| ❌ **"Voice embedding not found"** | Run `bash scripts/02_fetch_tts_configs.sh` to re-download |
+| 🐌 **Slow synthesis** | Increase `TTS_BATCH_SIZE` and `TTS_NUM_WORKERS` |
+| 💥 **High concurrency errors** | Raise `TTS_MAX_QUEUE_LEN`, check GPU memory |
+| 🔧 **"Worker argument error"** | Rust binary conflict - scripts handle this automatically |
+
+### **📊 Performance Tips**
+- **GPU Memory**: Monitor with `nvidia-smi` - 1.6B model needs ~6GB
+- **Concurrency**: Start with defaults, scale up gradually  
+- **Batching**: Higher batch size = better throughput, higher latency
+- **Voices**: All 7 voices are validated on startup
 
 ---
 
-For deeper integration (custom configs, multiple voices, or colocated STT), update `scripts/env.sh` and rerun `scripts/main.sh`. If you need the config file to live inside this repo, change `TTS_CONFIG` and re-run `scripts/02_fetch_tts_configs.sh`.
+## 🎯 **Advanced Usage**
+
+### **🔄 Multi-Voice Setup**
+All voices auto-downloaded and validated:
+```bash  
+# Test different voices programmatically
+voices=("p058" "p059" "p068" "p081" "p086" "p100")
+for v in "${voices[@]}"; do
+  curl -X POST -H "Content-Type: application/json" \
+    -d '{"text":"Hello from voice '$v'","voice":"ears/'$v'/freeform_speech_01.wav"}' \
+    http://localhost:8089/api/tts_streaming
+done
+```
+
+### **⚡ Production Deployment** 
+```bash
+# High-performance configuration
+export TTS_BATCH_SIZE=48 TTS_NUM_WORKERS=32
+bash scripts/main.sh
+```
