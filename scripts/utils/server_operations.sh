@@ -82,9 +82,9 @@ start_server_tmux() {
   env_vars="$env_vars TORCHINDUCTOR_DISABLE='${TORCHINDUCTOR_DISABLE}'"
   env_vars="$env_vars PYTORCH_JIT='${PYTORCH_JIT}'"
   # Pass HF Hub knobs to avoid XET throttling/bridge fetches
-  env_vars="$env_vars HF_HOME='${HF_HOME}'"
-  env_vars="$env_vars HF_HUB_DISABLE_XET='${HF_HUB_DISABLE_XET}'"
-  env_vars="$env_vars HF_HUB_ENABLE_HF_TRANSFER='${HF_HUB_ENABLE_HF_TRANSFER}'"
+  env_vars="$env_vars HF_HOME='${HF_HOME:-}'"
+  env_vars="$env_vars HF_HUB_DISABLE_XET='${HF_HUB_DISABLE_XET:-1}'"
+  env_vars="$env_vars HF_HUB_ENABLE_HF_TRANSFER='${HF_HUB_ENABLE_HF_TRANSFER:-0}'"
   
   $tmux_bin new-session -d -s "$session_name" \
     "cd '$repo_root' && env $env_vars '$moshi_bin' worker --config '$config_file' --addr '$addr' --port '$port' 2>&1 | tee '$log_file'"
@@ -124,9 +124,9 @@ start_server_nohup() {
   env_vars="$env_vars TORCHINDUCTOR_DISABLE='${TORCHINDUCTOR_DISABLE}'"
   env_vars="$env_vars PYTORCH_JIT='${PYTORCH_JIT}'"
   # Pass HF Hub knobs to avoid XET throttling/bridge fetches
-  env_vars="$env_vars HF_HOME='${HF_HOME}'"
-  env_vars="$env_vars HF_HUB_DISABLE_XET='${HF_HUB_DISABLE_XET}'"
-  env_vars="$env_vars HF_HUB_ENABLE_HF_TRANSFER='${HF_HUB_ENABLE_HF_TRANSFER}'"
+  env_vars="$env_vars HF_HOME='${HF_HOME:-}'"
+  env_vars="$env_vars HF_HUB_DISABLE_XET='${HF_HUB_DISABLE_XET:-1}'"
+  env_vars="$env_vars HF_HUB_ENABLE_HF_TRANSFER='${HF_HUB_ENABLE_HF_TRANSFER:-0}'"
   
   nohup sh -c "cd '$repo_root' && env $env_vars '$moshi_bin' worker --config '$config_file' --addr '$addr' --port '$port'" \
     > "$log_file" 2>&1 &
