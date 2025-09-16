@@ -52,9 +52,7 @@ fi
 
 VOICE_REL="${TTS_VOICE:-ears/p004/freeform_speech_01.wav}"
 VOICE_FOLDER_PATTERN="${VOICES_DIR}"
-BS_VAL="${TTS_BATCH_SIZE:-16}"
-
-# Use the WAV file directly for default_voice
+BS_VAL="${TTS_BATCH_SIZE:-24}"
 VOICE_REL_BASE="${VOICE_REL}"
 
 echo "[02-tts] Writing minimal server config to ${DEST_CFG}"
@@ -80,7 +78,7 @@ text_bos_token = 1
 hf_repo = "${TTS_HF_REPO}"
 log_folder = "\$HOME/tmp/moshi-server-logs"
 # CFG distillation => no explicit CFG pass at inference
-n_q = 32
+n_q = 24
 voice_folder = "${VOICE_FOLDER_PATTERN}"
 default_voice = "${VOICE_REL_BASE}"
 EOF

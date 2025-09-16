@@ -48,15 +48,22 @@ fi
 
 # Tuning knobs (override as needed)
 # Batching window/size for the TTS module (reduced for better TTFB while maintaining throughput)
-TTS_BATCH_SIZE=16
+TTS_BATCH_SIZE=24
 export TTS_BATCH_SIZE
 # Worker threads inside moshi-server (concurrent synthesis tasks)
 # Match/beat your benchmark concurrency to avoid queueing
-TTS_NUM_WORKERS=${TTS_NUM_WORKERS:-16}
+TTS_NUM_WORKERS=${TTS_NUM_WORKERS:-24}
 # Optional server-side request queue length (if supported by your moshi build)
-TTS_MAX_QUEUE_LEN=${TTS_MAX_QUEUE_LEN:-128}
+TTS_MAX_QUEUE_LEN=${TTS_MAX_QUEUE_LEN:-32}
 # Rayon CPU threads (Candle). Keep low to avoid CPU thrash on GPU runs
 TTS_RAYON_THREADS=${TTS_RAYON_THREADS:-1}
-# Tokio runtime worker threads (optimized for L40S with reduced context-switch noise)
-# 16 is sufficient for high concurrency while avoiding CPU thrash
-TTS_TOKIO_THREADS=${TTS_TOKIO_THREADS:-16}
+# Tokio runtime worker threads; default to CPU cores if unset
+TTS_TOKIO_THREADS=${TTS_TOKIO_THREADS:-}
+
+# Linux allocator + OpenMP caps for stable latency under load
+export MALLOC_ARENA_MAX=${MALLOC_ARENA_MAX:-2}
+export OMP_NUM_THREADS=${OMP_NUM_THREADS:-1}
+export MKL_NUM_THREADS=${MKL_NUM_THREADS:-1}
+export OMP_PROC_BIND=${OMP_PROC_BIND:-close}
+export OMP_PLACES=${OMP_PLACES:-cores}
+export KMP_BLOCKTIME=${KMP_BLOCKTIME:-0}

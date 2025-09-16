@@ -10,20 +10,27 @@ export HF_HOME HF_HUB_ENABLE_HF_TRANSFER
 
 # Threading and allocator caps to reduce CPU thrash and make latency predictable
 export RAYON_NUM_THREADS="${TTS_RAYON_THREADS:-1}"
-export TOKIO_WORKER_THREADS="${TTS_TOKIO_THREADS:-16}"
+export TOKIO_WORKER_THREADS="${TTS_TOKIO_THREADS:-$(nproc --all 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 16)}"
 export MALLOC_ARENA_MAX="${MALLOC_ARENA_MAX:-2}"
 export OMP_NUM_THREADS="${OMP_NUM_THREADS:-1}"
 export MKL_NUM_THREADS="${MKL_NUM_THREADS:-1}"
+# Bind OpenMP threads compactly and avoid oversubscription on Linux
+export OMP_PROC_BIND="${OMP_PROC_BIND:-close}"
+export OMP_PLACES="${OMP_PLACES:-cores}"
+export KMP_BLOCKTIME="${KMP_BLOCKTIME:-0}"
 # Trace logging is expensive under load; keep it lean in benchmarks
 # For pure benchmarks, drop to warn level to minimize critical path overhead
 export RUST_LOG="${RUST_LOG:-warn,hyper=warn,axum=warn}"
 export RUST_BACKTRACE="${RUST_BACKTRACE:-full}"
 
 # GPU concurrency knobs: raise to 64 to help avoid contention under bursts
-export CUDA_DEVICE_MAX_CONNECTIONS="${CUDA_DEVICE_MAX_CONNECTIONS:-32}"
+export CUDA_DEVICE_MAX_CONNECTIONS="${CUDA_DEVICE_MAX_CONNECTIONS:-64}"
 unset CUDA_LAUNCH_BLOCKING || true
 export CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-0}"
 export CUDA_DEVICE_ORDER="${CUDA_DEVICE_ORDER:-PCI_BUS_ID}"
+
+# PyTorch CUDA allocator tuning for smoother latency under bursts
+export PYTORCH_CUDA_ALLOC_CONF="${PYTORCH_CUDA_ALLOC_CONF:-expandable_segments:True,max_split_size_mb:64}"
 
 # Disable Torch Inductor to improve first-call TTFB for short utterances
 # TorchInductor compilation overhead hurts cold start performance
@@ -111,6 +118,9 @@ export PYTHONNOUSERSITE=1
 export NVIDIA_TF32_OVERRIDE="${NVIDIA_TF32_OVERRIDE:-1}"
 export TORCH_ALLOW_TF32_CUBLAS="${TORCH_ALLOW_TF32_CUBLAS:-1}"
 export TORCH_ALLOW_TF32_CUDNN="${TORCH_ALLOW_TF32_CUDNN:-1}"
+
+# Favor deterministic cublas workspace to reduce rare latency spikes
+export CUBLAS_WORKSPACE_CONFIG="${CUBLAS_WORKSPACE_CONFIG:-:4096:8}"
 
 # Build local moshi-server binary from the checked-out repo to ensure we use local sources
 MOSHI_ROOT="${REPO_ROOT}/moshi"
