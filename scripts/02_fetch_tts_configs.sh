@@ -52,9 +52,10 @@ else
   TEXT_SPM="${MODEL_DIR}/tokenizer_spm_8k_en_fr_audio.model"
 fi
 
-VOICE_REL="${TTS_VOICE:-ears/p004/freeform_speech_01.wav.1e68beda@240.safetensors}"
+VOICE_REL="${TTS_VOICE:-ears/p004/freeform_speech_01.wav}"
 VOICE_FOLDER_PATTERN="${VOICES_DIR}"
 BS_VAL="${TTS_BATCH_SIZE:-24}"
+NW_VAL="${TTS_NUM_WORKERS:-24}"
 VOICE_REL_BASE="${VOICE_REL}"
 
 log_info "$SCRIPT_NAME" "Writing minimal server config to ${DEST_CFG}"
@@ -63,6 +64,7 @@ static_dir = "./static/"
 log_dir = "\$HOME/tmp/tts-logs"
 instance_name = "tts"
 authorized_ids = ["public_token"]
+num_workers = ${NW_VAL}
 
 # --- Text tokenizer (Kyutai TTS 1.6B EN/FR) ---
 text_tokenizer_file = "${TEXT_SPM}"
