@@ -14,7 +14,7 @@ import json
 import os
 import statistics as stats
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Tuple, Optional
 
@@ -254,7 +254,7 @@ async def bench_ws(
             # Choose text in round-robin
             text = texts[req_idx % len(texts)]
             # Unique output path per request
-            ts = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
+            ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
             out_path = BENCH_DIR / f"bench_{ts}_{req_idx:05d}.wav"
             try:
                 r = await _tts_one(server, text, voice_path, out_path, api_key=api_key)
@@ -264,7 +264,7 @@ async def bench_ws(
                 err_path = RESULTS_DIR / "bench_errors.txt"
                 with contextlib.suppress(Exception):
                     with open(err_path, "a", encoding="utf-8") as ef:
-                        ef.write(f"{datetime.utcnow().isoformat()}Z idx={req_idx} err={e}\n")
+                        ef.write(f"{datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')} idx={req_idx} err={e}\n")
 
     tasks = [asyncio.create_task(worker(i)) for i in range(total_reqs)]
     await asyncio.gather(*tasks, return_exceptions=True)
