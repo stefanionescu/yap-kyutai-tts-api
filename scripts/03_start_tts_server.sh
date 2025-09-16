@@ -15,7 +15,7 @@ log_info "$SCRIPT_NAME" "Preparing environment"
 
 export PATH="${CUDA_PREFIX:-/usr/local/cuda}/bin:$HOME/.cargo/bin:$HOME/.local/bin:$PATH"
 export CUDARC_NVRTC_PATH="${CUDARC_NVRTC_PATH:-${CUDA_PREFIX:-/usr/local/cuda}/lib64/libnvrtc.so}"
-export HF_HOME HF_HUB_ENABLE_HF_TRANSFER
+export HF_HOME HF_HUB_ENABLE_HF_TRANSFER HF_HUB_DISABLE_XET
 
 # Setup server environment variables
 setup_server_environment "$SCRIPT_NAME"
