@@ -20,7 +20,7 @@ export RUST_LOG="${RUST_LOG:-warn,hyper=warn,axum=warn}"
 export RUST_BACKTRACE="${RUST_BACKTRACE:-full}"
 
 # GPU concurrency knobs: raise to 64 to help avoid contention under bursts
-export CUDA_DEVICE_MAX_CONNECTIONS="${CUDA_DEVICE_MAX_CONNECTIONS:-64}"
+export CUDA_DEVICE_MAX_CONNECTIONS="${CUDA_DEVICE_MAX_CONNECTIONS:-32}"
 unset CUDA_LAUNCH_BLOCKING || true
 export CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-0}"
 export CUDA_DEVICE_ORDER="${CUDA_DEVICE_ORDER:-PCI_BUS_ID}"

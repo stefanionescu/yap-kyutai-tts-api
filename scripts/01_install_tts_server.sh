@@ -73,7 +73,7 @@ import sysconfig; print(sysconfig.get_config_var("LIBDIR"))
 PY
 ):${LD_LIBRARY_PATH:-}"
 
-# GCC 15 workaround used by Kyutai (SentencePiece)
+# GCC 15 workaround used by Kyutai
 export CXXFLAGS="-include cstdint"
 
 echo "[01-tts] Python deps ready; local moshi-server will be built in the start script."
