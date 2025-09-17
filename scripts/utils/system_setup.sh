@@ -142,31 +142,11 @@ PY
   
   # Ensure the embedded Python used by pyo3 points to our venv
   export PYO3_PYTHON="$python_bin"
-  
-  # Use base Python stdlib for encodings, and the venv site-packages for deps
-  local base_prefix
-  base_prefix="$("$python_bin" - <<'PY'
-import sys
-print(sys.base_prefix)
-PY
-)"
-  
-  local py_site_pkgs
-  py_site_pkgs="$("$python_bin" - <<'PY'
-import site
-paths = []
-paths.extend([p for p in site.getsitepackages() if 'site-packages' in p])
-try:
-    paths.append(site.getusersitepackages())
-except Exception:
-    pass
-print(':'.join(paths))
-PY
-)"
-  
-  export PYTHONHOME="$base_prefix"
-  export PYTHONPATH="${py_site_pkgs}:${PYTHONPATH:-}"
-  export PYTHONNOUSERSITE=1
+
+  # Avoid forcing PYTHONHOME/PYTHONPATH to prevent stdlib/interpreter mismatches
+  # seen on some environments (e.g., A100 images). Let Python resolve stdlib normally.
+  unset PYTHONHOME || true
+  unset PYTHONPATH || true
   
   log_success "$script_name" "Python environment configured for Rust runtime"
 }
