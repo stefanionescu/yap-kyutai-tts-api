@@ -1,8 +1,8 @@
-# 🎤 Yap Kyutai TTS API
+# Yap Kyutai TTS API
 
 **Production-ready Text-To-Speech service** using Kyutai's state-of-the-art TTS models with the high-performance Rust `moshi-server`.
 
-## ⚡ **Key Features**
+## **Key Features**
 - **🤖 Model**: `kyutai/tts-1.6b-en_fr` (English & French, 1.6B parameters)
 - **🎯 Performance**: Optimized for L40S GPUs with CUDA acceleration
 - **🔊 Multi-Voice**: 6 different voices supported out-of-the-box
@@ -10,7 +10,7 @@
 - **📦 Modular**: Clean, maintainable script architecture
 - **🔒 Secure**: Token-based authentication support
 
-## 📋 **Specifications**
+## **Specifications**
 - **Default Port**: `8089` 
 - **Default Voice**: `ears/p004/freeform_speech_01.wav`
 - **Batch Size**: `24` (optimized for throughput + latency)
@@ -19,7 +19,7 @@
 
 > ⚠️ **RunPod Only**: These scripts are designed for RunPod pods with CUDA GPUs
 
-## 🛠️ **What's Included**
+## **What's Included**
 
 ### **Core Scripts** (Modular & Clean!)
 - **🔧 `01_install_tts_server.sh`**: System setup (Rust, Python, packages)
@@ -39,7 +39,7 @@
 - **`system_setup.sh`**: Environment & dependency installation
 - **`verification.sh`**: Comprehensive system verification
 
-## 📋 **Prerequisites**
+## **Prerequisites**
 
 ### **Hardware**
 - 🎮 **NVIDIA GPU** with CUDA 12.x (NVRTC required)
@@ -52,7 +52,7 @@
 
 ## ⚙️ **Configuration**
 
-### **📁 Data Storage** (All local under `.data/`)
+### **Data Storage** (All local under `.data/`)
 | Component | Default Path | Override Variable |
 |-----------|--------------|-------------------|
 | **Config** | `.data/server/config-tts.toml` | `TTS_CONFIG` |
@@ -60,7 +60,7 @@
 | **Voices** | `.data/voices/` | `VOICES_DIR` |
 | **Models** | `.data/models/` | - |
 
-### **🎛️ Performance Tuning** (Optimized for L40S)
+### **Performance Tuning** (Optimized for L40S)
 | Parameter | Default | Description |
 |-----------|---------|-------------|
 | **TTS_BATCH_SIZE** | `24` | Dynamic batching for `/api/tts_streaming` |
@@ -71,7 +71,7 @@
 | **TTS_PORT** | `8089` | Server listening port |
 | **TTS_ADDR** | `0.0.0.0` | Server bind address |
 
-### **🤗 HuggingFace Settings** (Anti-throttling)
+### **HuggingFace Settings** (Anti-throttling)
 - **HF_HUB_DISABLE_XET**: `1` (reduces parallelism)  
 - **HF_HUB_ENABLE_HF_TRANSFER**: `0` (disables XET transfers)
 
@@ -83,19 +83,19 @@
 - `ears/p086/freeform_speech_01.wav`
 - `ears/p100/freeform_speech_01.wav`
 
-## 🚀 **Quick Start**
+## **Quick Start**
 
-### **1️⃣ Set Your HuggingFace Token** (Required!)
+### **Set Your HuggingFace Token** (Required!)
 ```bash
 export HF_TOKEN=<your-hf-token>  # Get from: https://huggingface.co/settings/tokens
 ```
 
-### **2️⃣ One Command Deploy** 
+### **One Command Deploy** 
 ```bash
 bash scripts/main.sh
 ```
 
-### **3️⃣ What Happens** ✨
+### **What Happens** ✨
 1. **🔍 Token Validation**: Checks HF_TOKEN before any downloads
 2. **📦 System Setup**: Rust toolchain, Python venv, system packages  
 3. **⬇️ Model Download**: `kyutai/tts-1.6b-en_fr` (1.6B English/French)
@@ -113,9 +113,9 @@ bash scripts/main.sh
 - **Concurrency**: 24 workers, batch size 24
 - **Memory**: CPU-efficient threading, minimal heap fragmentation
 
-## 📊 **Monitoring & Logs**
+## **Monitoring & Logs**
 
-### **📋 Server Logs**
+### **Server Logs**
 ```bash
 # 👀 Live monitoring  
 tail -f .data/logs/tts-server.log
@@ -136,9 +136,9 @@ bash scripts/06_verify_config.sh
 curl -s http://127.0.0.1:8089/api/build_info
 ```
 
-## 📈 **Performance Testing**
+## **Performance Testing**
 
-### **🔥 Warmup & Benchmarks**
+### **Warmup & Benchmarks**
 ```bash
 # 🚀 Activate environment  
 source .venv/bin/activate
@@ -150,7 +150,7 @@ python test/warmup.py
 python test/bench.py
 ```
 
-### **⚙️ Advanced Testing**
+### **Advanced Testing**
 ```bash
 # 🎯 Custom warmup
 python test/warmup.py \
@@ -166,7 +166,7 @@ python test/bench.py \
   --text "Multiple text variations for testing"
 ```
 
-### **🎵 Voice Testing**
+### **Voice Testing**
 ```bash
 # 🔄 Test all supported voices
 for voice in ears/p058 ears/p059 ears/p068 ears/p081 ears/p086 ears/p100; do
@@ -191,7 +191,7 @@ export KYUTAI_API_KEY=<your-api-key>
 python test/client.py
 ```
 
-### **🔐 Authentication Setup** 
+### **Authentication Setup** 
 ```bash
 # On RunPod: Edit config to enable auth
 echo 'authorized_ids = ["your-secret-token"]' >> .data/server/config-tts.toml
@@ -203,14 +203,14 @@ bash scripts/stop.sh && bash scripts/03_start_tts_server.sh
 export KYUTAI_API_KEY=your-secret-token
 ```
 
-## 🛑 **Shutdown & Cleanup**
+## **Shutdown & Cleanup**
 
-### **🔄 Standard Cleanup**
+### **Standard Cleanup**
 ```bash  
 bash scripts/stop.sh
 ```
 
-### **🧹 Deep Cleaning**  
+### **Deep Cleaning**  
 ```bash
 # 📋 Also remove logs  
 PURGE_LOGS=1 bash scripts/stop.sh
@@ -231,21 +231,21 @@ PURGE_VENV=1 PURGE_LOGS=1 bash scripts/stop.sh
 
 ## 🎛️ **Customization**
 
-### **🎵 Change Voice**  
+### **Change Voice**  
 ```bash
 # Edit scripts/env.sh
 TTS_SPEAKER_DIR=ears/p058  # Choose from supported voices
 # Restart: bash scripts/stop.sh && bash scripts/03_start_tts_server.sh
 ```
 
-### **🌐 Change Port**
+### **Change Port**
 ```bash  
 # Edit scripts/env.sh
 TTS_PORT=8090  # Your custom port
 # Restart server
 ```
 
-### **🔧 Performance Tuning**
+### **Performance Tuning**
 ```bash
 # Edit scripts/env.sh - Example for high-end GPU:
 TTS_BATCH_SIZE=48          # Larger batches
@@ -253,14 +253,14 @@ TTS_NUM_WORKERS=32         # More workers
 TTS_MAX_QUEUE_LEN=64       # Bigger queue
 ```
 
-### **📋 Version Info**
+### **Version Info**
 - **Model**: `kyutai/tts-1.6b-en_fr` (1.6B parameters)
 - **Moshi**: Latest from GitHub (`aee53fc` commit)
 - **Quantization**: `n_q = 24` (1.6B optimal)
 
-## 🔐 **Security & Authentication**
+## **Security & Authentication**
 
-### **🔒 Enable Authentication**
+### **Enable Authentication**
 ```bash
 # Add to .data/server/config-tts.toml
 authorized_ids = ["your-secret-token"]
@@ -269,7 +269,7 @@ authorized_ids = ["your-secret-token"]
 curl -H "kyutai-api-key: your-secret-token" http://localhost:8089/api/build_info
 ```
 
-## 🚨 **Troubleshooting**
+## **Troubleshooting**
 
 | **Problem** | **Solution** |
 |-------------|--------------|
@@ -280,7 +280,7 @@ curl -H "kyutai-api-key: your-secret-token" http://localhost:8089/api/build_info
 | 💥 **High concurrency errors** | Raise `TTS_MAX_QUEUE_LEN`, check GPU memory |
 | 🔧 **"Worker argument error"** | Rust binary conflict - scripts handle this automatically |
 
-### **📊 Performance Tips**
+### **Performance Tips**
 - **GPU Memory**: Monitor with `nvidia-smi` - 1.6B model needs ~6GB
 - **Concurrency**: Start with defaults, scale up gradually  
 - **Batching**: Higher batch size = better throughput, higher latency
@@ -288,9 +288,9 @@ curl -H "kyutai-api-key: your-secret-token" http://localhost:8089/api/build_info
 
 ---
 
-## 🎯 **Advanced Usage**
+## **Advanced Usage**
 
-### **🔄 Multi-Voice Setup**
+### **Multi-Voice Setup**
 All voices auto-downloaded and validated:
 ```bash  
 # Test different voices programmatically
@@ -302,7 +302,7 @@ for v in "${voices[@]}"; do
 done
 ```
 
-### **⚡ Production Deployment** 
+### **Production Deployment** 
 ```bash
 # High-performance configuration
 export TTS_BATCH_SIZE=48 TTS_NUM_WORKERS=32
