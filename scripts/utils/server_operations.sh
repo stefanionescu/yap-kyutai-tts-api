@@ -66,6 +66,8 @@ start_server_tmux() {
   ulimit -n 1048576 || true
   
   # Build environment variable string
+  # Ensure venv bin is first on PATH so any spawned python uses the venv interpreter
+  local venv_bin_path="${repo_root}/.venv/bin"
   local env_vars="LD_LIBRARY_PATH='${LD_LIBRARY_PATH}'"
   env_vars="$env_vars PYO3_PYTHON='${PYO3_PYTHON}'"
   # Ensure Python stdlib/encodings and site-packages are visible to child processes
@@ -89,9 +91,18 @@ start_server_tmux() {
   env_vars="$env_vars HF_HOME='${HF_HOME:-}'"
   env_vars="$env_vars HF_HUB_DISABLE_XET='${HF_HUB_DISABLE_XET:-1}'"
   env_vars="$env_vars HF_HUB_ENABLE_HF_TRANSFER='${HF_HUB_ENABLE_HF_TRANSFER:-0}'"
+  # Propagate Python environment robustly and basic shell context
+  env_vars="$env_vars PYTHONHOME='${PYTHONHOME}'"
+  env_vars="$env_vars PYTHONPATH='${PYTHONPATH}'"
+  env_vars="$env_vars PYTHONNOUSERSITE='${PYTHONNOUSERSITE}'"
+  env_vars="$env_vars PYTHONEXECUTABLE='${PYO3_PYTHON}'"
+  env_vars="$env_vars VIRTUAL_ENV='${repo_root}/.venv'"
+  env_vars="$env_vars HOME='${HOME}'"
+  env_vars="$env_vars PATH='${venv_bin_path}:${PATH}'"
+  env_vars="$env_vars HF_TOKEN='${HF_TOKEN:-}'"
   
   $tmux_bin new-session -d -s "$session_name" \
-    "cd '$repo_root' && env $env_vars '$moshi_bin' worker --config '$config_file' --addr '$addr' --port '$port' 2>&1 | tee '$log_file'"
+    "cd '$repo_root' && env -i $env_vars '$moshi_bin' worker --config '$config_file' --addr '$addr' --port '$port' 2>&1 | tee '$log_file'"
   
   log_success "$script_name" "Server started in tmux session '$session_name'"
 }
@@ -112,6 +123,7 @@ start_server_nohup() {
   ulimit -n 1048576 || true
   
   # Build environment variable string (same as tmux version)
+  local venv_bin_path="${repo_root}/.venv/bin"
   local env_vars="LD_LIBRARY_PATH='${LD_LIBRARY_PATH}'"
   env_vars="$env_vars PYO3_PYTHON='${PYO3_PYTHON}'"
   env_vars="$env_vars PYTHONHOME='${PYTHONHOME}'"
@@ -134,8 +146,16 @@ start_server_nohup() {
   env_vars="$env_vars HF_HOME='${HF_HOME:-}'"
   env_vars="$env_vars HF_HUB_DISABLE_XET='${HF_HUB_DISABLE_XET:-1}'"
   env_vars="$env_vars HF_HUB_ENABLE_HF_TRANSFER='${HF_HUB_ENABLE_HF_TRANSFER:-0}'"
+  env_vars="$env_vars PYTHONHOME='${PYTHONHOME}'"
+  env_vars="$env_vars PYTHONPATH='${PYTHONPATH}'"
+  env_vars="$env_vars PYTHONNOUSERSITE='${PYTHONNOUSERSITE}'"
+  env_vars="$env_vars PYTHONEXECUTABLE='${PYO3_PYTHON}'"
+  env_vars="$env_vars VIRTUAL_ENV='${repo_root}/.venv'"
+  env_vars="$env_vars HOME='${HOME}'"
+  env_vars="$env_vars PATH='${venv_bin_path}:${PATH}'"
+  env_vars="$env_vars HF_TOKEN='${HF_TOKEN:-}'"
   
-  nohup sh -c "cd '$repo_root' && env $env_vars '$moshi_bin' worker --config '$config_file' --addr '$addr' --port '$port'" \
+  nohup sh -c "cd '$repo_root' && env -i $env_vars '$moshi_bin' worker --config '$config_file' --addr '$addr' --port '$port'" \
     > "$log_file" 2>&1 &
   
   log_success "$script_name" "Server started with nohup (PID: $!)"
