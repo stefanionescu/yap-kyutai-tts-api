@@ -165,26 +165,32 @@ start_server_nohup() {
 wait_for_server_ready() {
   local script_name="$1"
   local port="$2"
-  local timeout="${3:-180}"
+  local timeout="${3:-240}"
   local log_file="${4:-}"
-  
+
   log_info "$script_name" "Waiting for server to be ready on port $port (timeout: ${timeout}s)"
-  
+
   for i in $(seq 1 "$timeout"); do
-    (exec 3<>/dev/tcp/127.0.0.1/"$port") >/dev/null 2>&1 && { exec 3>&-; break; }
-    sleep 1
-    if [ "$i" -eq "$timeout" ]; then
-      log_error "$script_name" "TTS server didn't open port $port in time"
-      if [ -n "$log_file" ] && [ -f "$log_file" ]; then
-        echo "Recent server logs:" >&2
-        tail -n 50 "$log_file" >&2 || true
+    # Ready if TCP port is open
+    (exec 3<>/dev/tcp/127.0.0.1/"$port") >/dev/null 2>&1 && { exec 3>&-; log_success "$script_name" "Server is ready on port $port"; return 0; }
+
+    # Or, ready if log already reports listening
+    if [ -n "$log_file" ] && [ -f "$log_file" ]; then
+      if grep -qiE "listening[[:space:]]*on|listeningon" "$log_file"; then
+        log_success "$script_name" "Server reported listening in logs"
+        return 0
       fi
-      return 1
     fi
+
+    sleep 1
   done
-  
-  log_success "$script_name" "Server is ready on port $port"
-  return 0
+
+  log_error "$script_name" "TTS server didn't report ready within ${timeout}s"
+  if [ -n "$log_file" ] && [ -f "$log_file" ]; then
+    echo "Recent server logs:" >&2
+    tail -n 100 "$log_file" >&2 || true
+  fi
+  return 1
 }
 
 # Setup server environment variables
