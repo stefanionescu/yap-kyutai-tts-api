@@ -70,12 +70,16 @@ CACHE_PATHS=(
   "/root/.cache/huggingface"
   "$HOME/.cache/huggingface_hub"
   "/root/.cache/huggingface_hub"
+  "$HUGGINGFACE_HUB_CACHE"
+  "$HF_HOME"
   "$HOME/.cache/torch"
   "/root/.cache/torch"
   "$HOME/.cache/uv"
   "/root/.cache/uv"
   "$HOME/.cargo/registry"
   "$HOME/.cargo/git"
+  "/workspace/.cargo/registry"
+  "/workspace/.cargo/git"
   "$HOME/.cache/moshi"
   "/workspace/.cache/huggingface"
   "/workspace/.cache/huggingface_hub"
@@ -83,6 +87,9 @@ CACHE_PATHS=(
   "/workspace/.cache/torch"
   "/workspace/.cache/uv"
   "/workspace/.cache/moshi"
+  "$HOME/.cache/candle"
+  "/root/.cache/candle"
+  "/workspace/.cache/candle"
   "$HOME/.cache/pip"
   "/root/.cache/pip"
   "/workspace/.cache/pip"
@@ -97,6 +104,12 @@ if [ -n "${HF_HOME:-}" ]; then
 fi
 if [ -n "${XDG_CACHE_HOME:-}" ]; then
   CACHE_PATHS+=("${XDG_CACHE_HOME}/huggingface")
+  CACHE_PATHS+=("${XDG_CACHE_HOME}/huggingface_hub")
+  CACHE_PATHS+=("${XDG_CACHE_HOME}/torch")
+  CACHE_PATHS+=("${XDG_CACHE_HOME}/uv")
+  CACHE_PATHS+=("${XDG_CACHE_HOME}/pip")
+  CACHE_PATHS+=("${XDG_CACHE_HOME}/cmake")
+  CACHE_PATHS+=("${XDG_CACHE_HOME}/candle")
 fi
 
 for p in "${CACHE_PATHS[@]}"; do
@@ -124,8 +137,10 @@ done
 for p in \
   "$HOME/.local/share/uv" \
   "/root/.local/share/uv" \
+  "/workspace/.local/share/uv" \
   "$HOME/.local/bin/uv" \
-  "/root/.local/bin/uv"; do
+  "/root/.local/bin/uv" \
+  "/workspace/.local/bin/uv"; do
   [ -e "$p" ] && { echo "[stop] Removing uv data/bin: $p"; rm -rf "$p"; }
 done
 
@@ -152,10 +167,20 @@ for p in "${LEGACY_PATHS[@]}"; do
   [ -e "$p" ] && { echo "[stop] Removing legacy path: $p"; rm -rf "$p"; }
 done
 
-# Optionally remove Rust toolchains (saves a lot of space on ephemeral pods)
-if [ "${PURGE_RUSTUP:-1}" = "1" ] && [ -d "$HOME/.rustup" ]; then
-  echo "[stop] Removing rustup toolchains: $HOME/.rustup"
-  rm -rf "$HOME/.rustup"
+# Always remove Rust toolchains (saves a lot of space on ephemeral pods)
+if [ -d "${RUSTUP_HOME:-$HOME/.rustup}" ]; then
+  echo "[stop] Removing rustup toolchains: ${RUSTUP_HOME:-$HOME/.rustup}"
+  rm -rf "${RUSTUP_HOME:-$HOME/.rustup}"
+fi
+
+# Always remove Cargo home (registries, git, binaries) for full cleanup
+if [ -d "${CARGO_HOME:-$HOME/.cargo}" ]; then
+  echo "[stop] Removing cargo home: ${CARGO_HOME:-$HOME/.cargo}"
+  rm -rf "${CARGO_HOME:-$HOME/.cargo}"
+fi
+if [ -d "/workspace/.cargo" ]; then
+  echo "[stop] Removing workspace cargo dir: /workspace/.cargo"
+  rm -rf "/workspace/.cargo"
 fi
 
 # Clean apt caches if available
