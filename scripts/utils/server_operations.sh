@@ -68,6 +68,10 @@ start_server_tmux() {
   # Build environment variable string
   local env_vars="LD_LIBRARY_PATH='${LD_LIBRARY_PATH}'"
   env_vars="$env_vars PYO3_PYTHON='${PYO3_PYTHON}'"
+  # Ensure Python stdlib/encodings and site-packages are visible to child processes
+  env_vars="$env_vars PYTHONHOME='${PYTHONHOME}'"
+  env_vars="$env_vars PYTHONPATH='${PYTHONPATH}'"
+  env_vars="$env_vars PYTHONNOUSERSITE='${PYTHONNOUSERSITE}'"
   env_vars="$env_vars RAYON_NUM_THREADS='${RAYON_NUM_THREADS}'"
   env_vars="$env_vars TOKIO_WORKER_THREADS='${TOKIO_WORKER_THREADS}'"
   env_vars="$env_vars MALLOC_ARENA_MAX='${MALLOC_ARENA_MAX}'"
@@ -110,6 +114,9 @@ start_server_nohup() {
   # Build environment variable string (same as tmux version)
   local env_vars="LD_LIBRARY_PATH='${LD_LIBRARY_PATH}'"
   env_vars="$env_vars PYO3_PYTHON='${PYO3_PYTHON}'"
+  env_vars="$env_vars PYTHONHOME='${PYTHONHOME}'"
+  env_vars="$env_vars PYTHONPATH='${PYTHONPATH}'"
+  env_vars="$env_vars PYTHONNOUSERSITE='${PYTHONNOUSERSITE}'"
   env_vars="$env_vars RAYON_NUM_THREADS='${RAYON_NUM_THREADS}'"
   env_vars="$env_vars TOKIO_WORKER_THREADS='${TOKIO_WORKER_THREADS}'"
   env_vars="$env_vars MALLOC_ARENA_MAX='${MALLOC_ARENA_MAX}'"
