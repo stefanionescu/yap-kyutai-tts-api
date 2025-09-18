@@ -116,6 +116,13 @@ for p in "${CACHE_PATHS[@]}"; do
   [ -e "$p" ] && { echo "[stop] Removing cache: $p"; rm -rf "$p"; }
 done
 
+# Remove any HF cache directories accidentally created in repo root
+for p in \
+  "${ROOT_DIR}/hub" \
+  "${ROOT_DIR}/datasets"; do
+  [ -e "$p" ] && { echo "[stop] Removing repo-local HF cache: $p"; rm -rf "$p"; }
+done
+
 # Optionally purge entire cache roots to reclaim more space
 for p in "$HOME/.cache" "/root/.cache" "/workspace/.cache"; do
   [ -e "$p" ] && { echo "[stop] Purging cache root: $p"; rm -rf "$p"; }
