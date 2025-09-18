@@ -75,7 +75,7 @@ else
 fi
 
 # Wait for server to be ready
-if ! wait_for_server_ready "$SCRIPT_NAME" "$PORT" 180 "$LOG_FILE"; then
+if ! wait_for_server_ready "$SCRIPT_NAME" "$PORT" 240 "$LOG_FILE"; then
     exit 1
 fi
 
