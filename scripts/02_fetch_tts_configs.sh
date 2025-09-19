@@ -102,7 +102,7 @@ log_folder = "\$HOME/tmp/moshi-server-logs"
 n_q = 24
 padding_between = 0
 interleaved_text_only = ${ITXT_ONLY}
-voice_folder = "${SUBSET_DIR}/ears/**/*.safetensors"
+voice_folder = "${SUBSET_DIR}"
 default_voice = "ears/p004/freeform_speech_01.wav"
 # All required voices are available for generation:
 # - ears/p058/freeform_speech_01.wav
