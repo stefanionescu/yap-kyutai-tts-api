@@ -198,15 +198,12 @@ def main() -> None:
     # Determine API key
     api_key = args.api_key or os.getenv("KYUTAI_API_KEY") or "public_token"
 
-    # Prepare sentences: if multiple --text provided use them; else split into sentences
+    # Prepare payload: send the entire provided text as ONE frame (no splitting)
     if args.text:
         raw = " ".join([t for t in args.text if t and t.strip()])
     else:
         raw = "This is a warmup request to test the TTS system."
-    # Split on sentence boundaries . ! ?
-    sentences = [s.strip() for s in re.split(r"[.!?]+", raw) if s and s.strip()]
-    if not sentences:
-        sentences = [raw.strip()]
+    sentences = [raw.strip()]
 
     # Output file
     ts = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
