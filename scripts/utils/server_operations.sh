@@ -200,7 +200,7 @@ setup_server_environment() {
   log_info "$script_name" "Setting up server environment"
   
   # GPU and CUDA settings
-  export CUDA_DEVICE_MAX_CONNECTIONS="${CUDA_DEVICE_MAX_CONNECTIONS:-64}"
+  export CUDA_DEVICE_MAX_CONNECTIONS="${CUDA_DEVICE_MAX_CONNECTIONS:-32}"
   unset CUDA_LAUNCH_BLOCKING || true
   export CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-0}"
   export CUDA_DEVICE_ORDER="${CUDA_DEVICE_ORDER:-PCI_BUS_ID}"
@@ -217,8 +217,8 @@ setup_server_environment() {
   export TORCH_ALLOW_TF32_CUBLAS="${TORCH_ALLOW_TF32_CUBLAS:-1}"
   export TORCH_ALLOW_TF32_CUDNN="${TORCH_ALLOW_TF32_CUDNN:-1}"
   
-  # Favor deterministic cublas workspace to reduce rare latency spikes
-  export CUBLAS_WORKSPACE_CONFIG="${CUBLAS_WORKSPACE_CONFIG:-:4096:8}"
+  # Do not force deterministic cublas workspace (costs latency)
+  unset CUBLAS_WORKSPACE_CONFIG
   
   # Threading environment
   export RAYON_NUM_THREADS="${TTS_RAYON_THREADS:-1}"
