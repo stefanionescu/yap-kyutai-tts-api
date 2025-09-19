@@ -35,4 +35,11 @@ setup_python_lib_paths "$SCRIPT_NAME" "$ROOT_DIR/.venv/bin/python"
 # GCC 15 workaround used by Kyutai
 export CXXFLAGS="-include cstdint"
 
-log_success "$SCRIPT_NAME" "Environment setup complete - Python deps ready; local moshi-server will be built in the start script"
+# Install moshi-server (pinned) with CUDA support via cargo
+log_info "$SCRIPT_NAME" "Installing moshi-server@0.6.3 with CUDA via cargo"
+if ! "$HOME/.cargo/bin/cargo" install --features cuda moshi-server@0.6.3 | cat; then
+  log_error "$SCRIPT_NAME" "Failed to install moshi-server@0.6.3"
+  exit 1
+fi
+
+log_success "$SCRIPT_NAME" "Environment setup complete - moshi-server@0.6.3 installed with CUDA"

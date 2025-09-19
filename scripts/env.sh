@@ -47,18 +47,20 @@ else
 fi
 
 # Tuning knobs (override as needed)
-# Batching window/size for the TTS module (reduced for better TTFB while maintaining throughput)
-TTS_BATCH_SIZE=24
+# Batching window/size for the TTS module (match your target concurrency)
+TTS_BATCH_SIZE=32
 export TTS_BATCH_SIZE
 # Worker threads inside moshi-server (concurrent synthesis tasks)
 # Match/beat your benchmark concurrency to avoid queueing
-TTS_NUM_WORKERS=${TTS_NUM_WORKERS:-24}
+TTS_NUM_WORKERS=${TTS_NUM_WORKERS:-32}
 # Optional server-side request queue length (if supported by your moshi build)
-TTS_MAX_QUEUE_LEN=${TTS_MAX_QUEUE_LEN:-32}
+TTS_MAX_QUEUE_LEN=${TTS_MAX_QUEUE_LEN:-64}
 # Rayon CPU threads (Candle). Keep low to avoid CPU thrash on GPU runs
 TTS_RAYON_THREADS=${TTS_RAYON_THREADS:-1}
 # Tokio runtime worker threads; default to CPU cores if unset
 TTS_TOKIO_THREADS=${TTS_TOKIO_THREADS:-}
+# Interleave text-only steps before audio decode (0 best TTFB)
+TTS_INTERLEAVED_TEXT_ONLY=${TTS_INTERLEAVED_TEXT_ONLY:-0}
 
 # HuggingFace Hub settings to avoid throttling bursts
 export HF_HUB_DISABLE_XET=${HF_HUB_DISABLE_XET:-1}

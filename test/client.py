@@ -12,11 +12,10 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-import json
 import os
 import time
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import List, Optional
 
 import msgpack  # type: ignore
 import numpy as np  # type: ignore
@@ -179,31 +178,9 @@ async def tts_client(
     async with connect(url, **ws_options) as ws:  # type: ignore
         connect_ms = (time.perf_counter() - connect_start) * 1000.0
 
-        # Try to capture a Ready frame for handshake timing (optional)
+        # No pre-recv handshake wait; start full-duplex immediately for fair TTFB
         first_frame: Optional[bytes] = None
-        try:
-            hs_start = time.perf_counter()
-            raw = await asyncio.wait_for(ws.recv(), timeout=0.3)
-            handshake_ms = (time.perf_counter() - hs_start) * 1000.0
-            # Some servers send a metadata/ready frame first – try to extract a prefix hint
-            # But we prefer our calculated prefix from the voice file
-            if isinstance(raw, (bytes, bytearray)):
-                try:
-                    meta = msgpack.unpackb(raw, raw=False)
-                    pf = meta.get("prefix_samples") or meta.get("prefix_ms")
-                    # Only use server metadata if we couldn't calculate from voice file
-                    if prefix_samples_to_drop == int(24000 * (DEFAULT_TRIM_MS / 1000.0)):
-                        if isinstance(pf, int):
-                            prefix_samples_to_drop = max(0, pf)
-                        elif isinstance(pf, float):
-                            prefix_samples_to_drop = int(sample_rate * (pf / 1000.0))
-                except:
-                    # If metadata parsing fails, keep our calculated prefix
-                    pass
-            first_frame = raw if isinstance(raw, (bytes, bytearray)) else None
-        except asyncio.TimeoutError:
-            handshake_ms = 0.0
-            first_frame = None
+        handshake_ms = 0.0
 
         # True full-duplex: concurrent reader/sender for optimal TTFB
         t0_server_holder = {"t0": None}
@@ -250,11 +227,7 @@ async def tts_client(
 
         async def reader():
             try:
-                # Process the first frame (if any) before main loop
-                if first_frame is not None:
-                    if _process_frame(first_frame):
-                        return
-                # Continue with stream
+                # Stream reader loop
                 while True:
                     raw = await ws.recv()
                     if not isinstance(raw, (bytes, bytearray)):

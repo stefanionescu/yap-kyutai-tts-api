@@ -33,3 +33,6 @@ Thumbs.db
 # Test files
 *.wav
 audio/
+
+# Research
+research/

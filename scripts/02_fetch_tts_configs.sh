@@ -54,9 +54,10 @@ fi
 
 VOICE_REL="${TTS_VOICE:-ears/p004/freeform_speech_01.wav}"
 VOICE_FOLDER_PATTERN="${VOICES_DIR}"
-BS_VAL="${TTS_BATCH_SIZE:-24}"
-NW_VAL="${TTS_NUM_WORKERS:-24}"
+BS_VAL="${TTS_BATCH_SIZE:-32}"
+NW_VAL="${TTS_NUM_WORKERS:-32}"
 VOICE_REL_BASE="${VOICE_REL}"
+ITXT_ONLY="${TTS_INTERLEAVED_TEXT_ONLY:-0}"
 
 log_info "$SCRIPT_NAME" "Writing minimal server config to ${DEST_CFG}"
 cat > "${DEST_CFG}" <<EOF
@@ -64,7 +65,6 @@ static_dir = "./static/"
 log_dir = "\$HOME/tmp/tts-logs"
 instance_name = "tts"
 authorized_ids = ["public_token"]
-num_workers = ${NW_VAL}
 
 # --- Text tokenizer (Kyutai TTS 1.6B EN/FR) ---
 text_tokenizer_file = "${TEXT_SPM}"
@@ -73,7 +73,7 @@ text_bos_token = 1
 [modules.tts_py]
 type = "Py"
 path = "/api/tts_streaming"
-batch_size = ${BS_VAL} 
+batch_size = ${BS_VAL}
 text_tokenizer_file = "${TEXT_SPM}"
 text_bos_token = 1
 
@@ -83,6 +83,8 @@ hf_repo = "${TTS_HF_REPO}"
 log_folder = "\$HOME/tmp/moshi-server-logs"
 # CFG distillation => no explicit CFG pass at inference
 n_q = 24
+padding_between = 1
+interleaved_text_only = ${ITXT_ONLY}
 voice_folder = "${VOICE_FOLDER_PATTERN}"
 default_voice = "${VOICE_REL_BASE}"
 # All required voices are available for generation:

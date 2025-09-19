@@ -28,7 +28,7 @@ ADDR="${TTS_ADDR}"
 PYTHON_BIN="${ROOT_DIR}/.venv/bin/python"
 ensure_dir "${LOG_DIR}"
 
-log_info "$SCRIPT_NAME" "Starting moshi TTS server (local build)…"
+log_info "$SCRIPT_NAME" "Starting moshi TTS server…"
 log_info "$SCRIPT_NAME" "Using config: ${CFG}"
 log_info "$SCRIPT_NAME" "ROOT_DIR: ${ROOT_DIR}"
 
@@ -56,11 +56,15 @@ grep -n 'authorized_ids' "$CFG" >&2 || log_info "$SCRIPT_NAME" "No auth configur
 # Setup Python library paths for Rust runtime
 setup_python_lib_paths "$SCRIPT_NAME" "$PYTHON_BIN"
 
-# Build local moshi-server binary from the checked-out repo
-MOSHI_BIN=$(build_moshi_server "$SCRIPT_NAME" "$ROOT_DIR" "$PYTHON_BIN")
-if [ $? -ne 0 ] || [ ! -x "$MOSHI_BIN" ]; then
-    log_error "$SCRIPT_NAME" "Failed to build moshi-server"
-    exit 1
+# Prefer cargo-installed moshi-server@0.6.3; fallback to local build
+MOSHI_BIN="$HOME/.cargo/bin/moshi-server"
+if [ ! -x "$MOSHI_BIN" ]; then
+    log_warning "$SCRIPT_NAME" "cargo-installed moshi-server not found, building locally"
+    MOSHI_BIN=$(build_moshi_server "$SCRIPT_NAME" "$ROOT_DIR" "$PYTHON_BIN")
+    if [ $? -ne 0 ] || [ ! -x "$MOSHI_BIN" ]; then
+        log_error "$SCRIPT_NAME" "Failed to obtain moshi-server binary"
+        exit 1
+    fi
 fi
 
 # Start server using tmux or nohup
