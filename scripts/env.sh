@@ -48,7 +48,7 @@ fi
 
 # Tuning knobs (override as needed)
 # Batching window/size for the TTS module (match your target concurrency)
-TTS_BATCH_SIZE=32
+TTS_BATCH_SIZE=8
 export TTS_BATCH_SIZE
 # Worker threads inside moshi-server (concurrent synthesis tasks)
 # Match/beat your benchmark concurrency to avoid queueing
