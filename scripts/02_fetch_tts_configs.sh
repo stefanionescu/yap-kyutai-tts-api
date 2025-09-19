@@ -59,6 +59,9 @@ NW_VAL="${TTS_NUM_WORKERS:-32}"
 VOICE_REL_BASE="${VOICE_REL}"
 ITXT_ONLY="${TTS_INTERLEAVED_TEXT_ONLY:-0}"
 
+# Ensure voices are present before building subset
+ensure_voice_availability "$SCRIPT_NAME" "$VOICES_DIR" "$PYTHON_BIN"
+
 # Build a minimal subset of voices to speed up CA cache loading
 SUBSET_DIR="${VOICES_DIR}/subset_ears"
 ensure_dir "${SUBSET_DIR}/ears"
@@ -114,9 +117,3 @@ default_voice = "ears/p004/freeform_speech_01.wav"
 EOF
 
 log_success "$SCRIPT_NAME" "Wrote ${DEST_CFG}"
-
-# Ensure voice availability with validation and re-download if needed
-ensure_voice_availability "$SCRIPT_NAME" "$VOICES_DIR" "$PYTHON_BIN"
-
-# Ensure the p004 embedding exists locally; some snapshots may miss it on first pass  
-ensure_speaker_voice "$SCRIPT_NAME" "$VOICES_DIR" "ears/p004" "$PYTHON_BIN"
