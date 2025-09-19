@@ -17,7 +17,6 @@ import numpy as np  # type: ignore
 from websockets.asyncio.client import connect  # type: ignore
 from urllib.parse import quote
 import re
-import wave
 
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
@@ -35,15 +34,6 @@ def _ws_url(server: str, voice_path: Optional[str]) -> str:
         qp.append(f"voice={quote(voice_path)}")
     qp.append("format=PcmMessagePack")
     return f"{base}/api/tts_streaming?{'&'.join(qp)}"
-
-
-def _write_wav_int16(output_path: Path, pcm_int16: np.ndarray, sample_rate: int) -> None:
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    with wave.open(str(output_path), "wb") as wf:
-        wf.setnchannels(1)
-        wf.setsampwidth(2)
-        wf.setframerate(sample_rate)
-        wf.writeframes(pcm_int16.tobytes())
 
 
 def _extract_pcm(msg: dict) -> tuple[np.ndarray, int]:
@@ -161,10 +151,9 @@ async def _tts_one(
 
     wall_s = time.perf_counter() - t0_e2e
 
-    # Write WAV and compute audio seconds
+    # Compute audio seconds (no WAV writing)
     if pcm_chunks:
         pcm_int16 = np.concatenate(pcm_chunks, dtype=np.int16)
-        _write_wav_int16(out_path, pcm_int16, sample_rate)
         audio_s = len(pcm_int16) / float(sample_rate)
         
         # Verify sample rate consistency
@@ -226,7 +215,7 @@ def main() -> None:
     print(f"Audio duration: {result['audio_s']:.3f}s")
     print(f"RTF: {result['rtf']:.3f}")
     print(f"xRT: {result['xrt']:.3f}")
-    print(f"Saved: {out_path}")
+    # No file output in warmup
 
 
 if __name__ == "__main__":
