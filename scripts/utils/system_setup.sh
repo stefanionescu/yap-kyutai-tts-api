@@ -15,7 +15,7 @@ install_system_packages() {
     apt-get update -y
     apt-get install -y --no-install-recommends \
       build-essential pkg-config libssl-dev libopus-dev cmake \
-      ca-certificates tmux libportaudio2 libsndfile1
+      ca-certificates tmux libportaudio2 libsndfile1 jq
     log_success "$script_name" "System packages installed"
   else
     log_warning "$script_name" "apt-get not available, skipping system package installation"
