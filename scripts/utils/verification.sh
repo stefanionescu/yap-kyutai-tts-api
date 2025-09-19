@@ -35,14 +35,20 @@ verify_config_file() {
     ((errors++))
   fi
 
-  # CFG settings should NOT be present (1.6B is CFG-distilled)
-  if grep -E '^[[:space:]]*cfg_is_no_text[[:space:]]*=|^[[:space:]]*cfg_coef[[:space:]]*=|^[[:space:]]*padding_between[[:space:]]*=' "$config_file"; then
-    log_error "$script_name" "Config should NOT have CFG settings (1.6B is CFG-distilled)"
-    ((errors++))
+  # Accept cfg_* and padding_between/interleaved_text_only fields (Unmute uses them)
+  # No error here; informational only
+  if grep -E '^[[:space:]]*cfg_is_no_text[[:space:]]*=|^[[:space:]]*cfg_coef[[:space:]]*=' "$config_file"; then
+    log_info "$script_name" "CFG-related fields present (ok)"
+  fi
+  if grep -E '^[[:space:]]*padding_between[[:space:]]*=|^[[:space:]]*interleaved_text_only[[:space:]]*=' "$config_file"; then
+    log_info "$script_name" "Padding/interleave fields present (ok)"
   fi
 
-  if ! grep -q 'batch_size = 24' "$config_file"; then
-    log_error "$script_name" "Config should have batch_size = 24 (optimal for L40S)"
+  # batch_size must match our target concurrency (from env or default 32)
+  local expected_bs
+  expected_bs="${TTS_BATCH_SIZE:-32}"
+  if ! grep -q "batch_size = ${expected_bs}" "$config_file"; then
+    log_error "$script_name" "Config should have batch_size = ${expected_bs}"
     ((errors++))
   fi
 
