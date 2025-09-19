@@ -200,7 +200,7 @@ setup_server_environment() {
   log_info "$script_name" "Setting up server environment"
   
   # GPU and CUDA settings
-  export CUDA_DEVICE_MAX_CONNECTIONS="${CUDA_DEVICE_MAX_CONNECTIONS:-32}"
+  export CUDA_DEVICE_MAX_CONNECTIONS="${CUDA_DEVICE_MAX_CONNECTIONS:-64}"
   unset CUDA_LAUNCH_BLOCKING || true
   export CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-0}"
   export CUDA_DEVICE_ORDER="${CUDA_DEVICE_ORDER:-PCI_BUS_ID}"
@@ -221,7 +221,7 @@ setup_server_environment() {
   unset CUBLAS_WORKSPACE_CONFIG
   
   # Threading environment
-  export RAYON_NUM_THREADS="${TTS_RAYON_THREADS:-1}"
+  export RAYON_NUM_THREADS="${TTS_RAYON_THREADS:-4}"
   export TOKIO_WORKER_THREADS="${TTS_TOKIO_THREADS:-$(nproc --all 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 16)}"
   
   # Logging
