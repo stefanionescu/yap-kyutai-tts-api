@@ -16,6 +16,7 @@ import msgpack  # type: ignore
 import numpy as np  # type: ignore
 from websockets.asyncio.client import connect  # type: ignore
 from urllib.parse import quote
+import re
 import wave
 
 
@@ -66,7 +67,7 @@ def _extract_pcm(msg: dict) -> tuple[np.ndarray, int]:
 
 async def _tts_one(
     server: str,
-    text: str,
+    texts: List[str],
     voice_path: Optional[str],
     out_path: Path,
     *,
@@ -141,11 +142,15 @@ async def _tts_one(
 
         async def sender():
             try:
-                # Send the full sentence in one go (no word-by-word streaming)
-                await ws.send(msgpack.packb({"type": "Text", "text": text}, use_bin_type=True))
-                if t0_server_holder["t0"] is None:
-                    t0_server_holder["t0"] = time.perf_counter()
-                await asyncio.sleep(0)
+                # Send each sentence as a single frame (no word-by-word streaming)
+                for sent in texts:
+                    s = sent.strip()
+                    if not s:
+                        continue
+                    await ws.send(msgpack.packb({"type": "Text", "text": s}, use_bin_type=True))
+                    if t0_server_holder["t0"] is None:
+                        t0_server_holder["t0"] = time.perf_counter()
+                    await asyncio.sleep(0)
                 await ws.send(msgpack.packb({"type": "Eos"}, use_bin_type=True))
             except (asyncio.CancelledError, Exception):
                 # Connection closed or task cancelled, exit gracefully
@@ -187,23 +192,35 @@ def main() -> None:
     ap.add_argument("--server", default="127.0.0.1:8089", help="Server address")
     ap.add_argument("--voice", default=os.environ.get("TTS_VOICE", "ears/p004/freeform_speech_01.wav.1e68beda@240.safetensors"), help="Voice path")
     ap.add_argument("--api-key", default=None, help="API key (defaults to KYUTAI_API_KEY env var or 'public_token')")
-    ap.add_argument("--text", default="This is a warmup request to test the TTS system.", help="Text to synthesize")
+    ap.add_argument("--text", action="append", default=None, help="Text to synthesize (repeat for multiple)")
     args = ap.parse_args()
-    
+
     # Determine API key
     api_key = args.api_key or os.getenv("KYUTAI_API_KEY") or "public_token"
-    
+
+    # Prepare sentences: if multiple --text provided use them; else split into sentences
+    if args.text:
+        raw = " ".join([t for t in args.text if t and t.strip()])
+    else:
+        raw = "This is a warmup request to test the TTS system."
+    # Split on sentence boundaries . ! ?
+    sentences = [s.strip() for s in re.split(r"[.!?]+", raw) if s and s.strip()]
+    if not sentences:
+        sentences = [raw.strip()]
+
     # Output file
     ts = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
     out_path = WARMUP_DIR / f"warmup_{ts}.wav"
-    
+
     print(f"Warmup TTS request")
     print(f"Server: {args.server}")
     print(f"Voice: {args.voice}")
-    print(f"Text: '{args.text}'")
+    print(f"Sentences: {len(sentences)}")
+    for i, s in enumerate(sentences):
+        print(f"  [{i+1}] {s}")
     print(f"Output: {out_path}")
-    
-    result = asyncio.run(_tts_one(args.server, args.text, args.voice, out_path, api_key=api_key))
+
+    result = asyncio.run(_tts_one(args.server, sentences, args.voice, out_path, api_key=api_key))
     
     print(f"\n== Results ==")
     print(f"TTFB (e2e): {result['ttfb_e2e_s']:.3f}s")
