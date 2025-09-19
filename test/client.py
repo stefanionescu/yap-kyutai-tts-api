@@ -3,7 +3,7 @@
 Yap TTS WebSocket client.
 
 - Connects to a remote Yap TTS server (RunPod or local)
-- Sends text (word-by-word) and receives streaming PCM chunks
+- Sends text (full sentence by sentence) and receives streaming PCM chunks
 - Aggregates all audio and saves a WAV file under ROOT/audio/
 - Tracks metrics similar to other test files (TTFB, connect, handshake)
 - Supports env vars: RUNPOD_TCP_HOST, RUNPOD_TCP_PORT, RUNPOD_API_KEY, KYUTAI_API_KEY
@@ -54,11 +54,7 @@ def _ws_url(server: str, voice_path: Optional[str]) -> str:
         base = f"ws://{server.strip().rstrip('/')}"
     qp: List[str] = [
         "format=PcmMessagePack",
-        # Let server use default seq_len instead of constraining to 128
-        # "temp=0.2",
-        # "seed=42",
     ]
-    # Temporarily comment out voice parameter for debugging
     if voice_path:
         from urllib.parse import quote
         qp.append(f"voice={quote(voice_path)}")
@@ -240,16 +236,11 @@ async def tts_client(
 
         async def sender():
             try:
-                all_words = []
-                for text in texts:
-                    all_words.extend(text.split())
-                
-                for i, word in enumerate(all_words):
-                    fragment = word if i == 0 else (" " + word)
-                    await ws.send(msgpack.packb({"type": "Text", "text": fragment}, use_bin_type=True))
+                # Send full sentences, not word by word
+                for idx, text in enumerate(texts):
+                    await ws.send(msgpack.packb({"type": "Text", "text": text}, use_bin_type=True))
                     if t0_server_holder["t0"] is None:
                         t0_server_holder["t0"] = time.perf_counter()
-                    # tiny yield to let reader run
                     await asyncio.sleep(0)
                 await ws.send(msgpack.packb({"type": "Eos"}, use_bin_type=True))
             except (asyncio.CancelledError, Exception):
