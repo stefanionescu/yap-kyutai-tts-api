@@ -33,9 +33,6 @@ def _ws_url(server: str, voice_path: Optional[str]) -> str:
     if voice_path:
         qp.append(f"voice={quote(voice_path)}")
     qp.append("format=PcmMessagePack")
-    # Let server use default seq_len instead of constraining to 128
-    qp.append("temp=0.2")
-    qp.append("seed=42")
     return f"{base}/api/tts_streaming?{'&'.join(qp)}"
 
 
@@ -144,14 +141,11 @@ async def _tts_one(
 
         async def sender():
             try:
-                words = text.split()
-                for i, word in enumerate(words):
-                    fragment = word if i == 0 else (" " + word)
-                    await ws.send(msgpack.packb({"type": "Text", "text": fragment}, use_bin_type=True))
-                    if t0_server_holder["t0"] is None:
-                        t0_server_holder["t0"] = time.perf_counter()
-                    # tiny yield to let reader run
-                    await asyncio.sleep(0)
+                # Send the full sentence in one go (no word-by-word streaming)
+                await ws.send(msgpack.packb({"type": "Text", "text": text}, use_bin_type=True))
+                if t0_server_holder["t0"] is None:
+                    t0_server_holder["t0"] = time.perf_counter()
+                await asyncio.sleep(0)
                 await ws.send(msgpack.packb({"type": "Eos"}, use_bin_type=True))
             except (asyncio.CancelledError, Exception):
                 # Connection closed or task cancelled, exit gracefully
