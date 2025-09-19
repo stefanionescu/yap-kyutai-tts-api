@@ -59,6 +59,23 @@ NW_VAL="${TTS_NUM_WORKERS:-32}"
 VOICE_REL_BASE="${VOICE_REL}"
 ITXT_ONLY="${TTS_INTERLEAVED_TEXT_ONLY:-0}"
 
+# Build a minimal subset of voices to speed up CA cache loading
+SUBSET_DIR="${VOICES_DIR}/subset_ears"
+ensure_dir "${SUBSET_DIR}/ears"
+SELECTED_SPKS=(p004 p058 p059 p068 p081 p086 p100)
+for spk in "${SELECTED_SPKS[@]}"; do
+  ensure_dir "${SUBSET_DIR}/ears/${spk}"
+  # Link safetensors embeddings
+  for f in "${VOICES_DIR}/ears/${spk}"/*.safetensors; do
+    [ -f "$f" ] || continue
+    ln -sf "$f" "${SUBSET_DIR}/ears/${spk}/$(basename "$f")"
+  done
+  # Link canonical wav for p004 so the default_voice path resolves
+  if [ "$spk" = "p004" ] && [ -f "${VOICES_DIR}/ears/${spk}/freeform_speech_01.wav" ]; then
+    ln -sf "${VOICES_DIR}/ears/${spk}/freeform_speech_01.wav" "${SUBSET_DIR}/ears/${spk}/freeform_speech_01.wav"
+  fi
+done
+
 log_info "$SCRIPT_NAME" "Writing minimal server config to ${DEST_CFG}"
 cat > "${DEST_CFG}" <<EOF
 static_dir = "./static/"
@@ -85,8 +102,8 @@ log_folder = "\$HOME/tmp/moshi-server-logs"
 n_q = 24
 padding_between = 0
 interleaved_text_only = ${ITXT_ONLY}
-voice_folder = "${VOICE_FOLDER_PATTERN}/ears/p004/*.safetensors"
-default_voice = "${VOICE_REL_BASE}"
+voice_folder = "${SUBSET_DIR}/ears/**/*.safetensors"
+default_voice = "ears/p004/freeform_speech_01.wav"
 # All required voices are available for generation:
 # - ears/p058/freeform_speech_01.wav
 # - ears/p059/freeform_speech_01.wav
