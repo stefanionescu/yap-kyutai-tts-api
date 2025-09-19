@@ -83,9 +83,9 @@ hf_repo = "${TTS_HF_REPO}"
 log_folder = "\$HOME/tmp/moshi-server-logs"
 # CFG distillation => no explicit CFG pass at inference
 n_q = 24
-padding_between = 1
+padding_between = 0
 interleaved_text_only = ${ITXT_ONLY}
-voice_folder = "${VOICE_FOLDER_PATTERN}"
+voice_folder = "${VOICE_FOLDER_PATTERN}/ears/p004/*.safetensors"
 default_voice = "${VOICE_REL_BASE}"
 # All required voices are available for generation:
 # - ears/p058/freeform_speech_01.wav
