@@ -46,7 +46,7 @@ verify_config_file() {
 
   # batch_size must match our target concurrency (from env or default 32)
   local expected_bs
-  expected_bs="${TTS_BATCH_SIZE:-32}"
+  expected_bs="${TTS_BATCH_SIZE:-16}"
   if ! grep -q "batch_size = ${expected_bs}" "$config_file"; then
     log_error "$script_name" "Config should have batch_size = ${expected_bs}"
     ((errors++))
