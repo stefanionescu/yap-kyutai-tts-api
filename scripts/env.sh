@@ -55,8 +55,8 @@ export TTS_BATCH_SIZE
 TTS_NUM_WORKERS=${TTS_NUM_WORKERS:-32}
 # Optional server-side request queue length (if supported by your moshi build)
 TTS_MAX_QUEUE_LEN=${TTS_MAX_QUEUE_LEN:-64}
-# Rayon CPU threads (Candle). Keep low to avoid CPU thrash on GPU runs
-TTS_RAYON_THREADS=${TTS_RAYON_THREADS:-1}
+# Rayon CPU threads (Candle). Higher for better GPU feeding
+TTS_RAYON_THREADS=${TTS_RAYON_THREADS:-8}
 # Tokio runtime worker threads; default to CPU cores if unset
 TTS_TOKIO_THREADS=${TTS_TOKIO_THREADS:-}
 # Interleave text-only steps before audio decode (0 best TTFB)
