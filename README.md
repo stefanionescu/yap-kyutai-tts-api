@@ -63,7 +63,7 @@
 ### **Performance Tuning** (Optimized for L40S)
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| **TTS_BATCH_SIZE** | `24` | Dynamic batching for `/api/tts_streaming` |
+| **TTS_BATCH_SIZE** | `16` | Dynamic batching for `/api/tts_streaming` |
 | **TTS_NUM_WORKERS** | `24` | Concurrent synthesis tasks |
 | **TTS_MAX_QUEUE_LEN** | `32` | Request queue length for burst handling |
 | **TTS_RAYON_THREADS** | `1` | CPU threads (avoid GPU contention) |
@@ -248,9 +248,9 @@ TTS_PORT=8090  # Your custom port
 ### **Performance Tuning**
 ```bash
 # Edit scripts/env.sh - Example for high-end GPU:
-TTS_BATCH_SIZE=48          # Larger batches
-TTS_NUM_WORKERS=32         # More workers  
-TTS_MAX_QUEUE_LEN=64       # Bigger queue
+TTS_BATCH_SIZE=16          # Larger batches
+TTS_NUM_WORKERS=16         # More workers  
+TTS_MAX_QUEUE_LEN=24       # Bigger queue
 ```
 
 ### **Version Info**
@@ -305,6 +305,6 @@ done
 ### **Production Deployment** 
 ```bash
 # High-performance configuration
-export TTS_BATCH_SIZE=48 TTS_NUM_WORKERS=32
+export TTS_BATCH_SIZE=16 TTS_NUM_WORKERS=16
 bash scripts/main.sh
 ```

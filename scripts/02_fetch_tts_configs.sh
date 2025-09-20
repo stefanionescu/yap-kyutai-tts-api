@@ -54,7 +54,7 @@ fi
 
 VOICE_REL="${TTS_VOICE:-ears/p004/freeform_speech_01.wav}"
 VOICE_FOLDER_PATTERN="${VOICES_DIR}"
-BS_VAL="${TTS_BATCH_SIZE:-8}"
+BS_VAL="${TTS_BATCH_SIZE:-16}"
 NW_VAL="${TTS_NUM_WORKERS:-32}"
 VOICE_REL_BASE="${VOICE_REL}"
 ITXT_ONLY="${TTS_INTERLEAVED_TEXT_ONLY:-0}"
@@ -103,7 +103,9 @@ hf_repo = "${TTS_HF_REPO}"
 log_folder = "\$HOME/tmp/moshi-server-logs"
 # CFG distillation => no explicit CFG pass at inference
 n_q = 24
-padding_between = 0
+cfg_coef = 2.0
+cfg_is_no_text = true
+padding_between = 1
 interleaved_text_only = ${ITXT_ONLY}
 voice_folder = "${SUBSET_DIR}"
 default_voice = "ears/p004/freeform_speech_01.wav"

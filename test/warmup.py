@@ -67,16 +67,8 @@ async def _tts_one(
 
     headers = {"kyutai-api-key": api_key} if api_key else {}
 
-    ws_options = {
-        "additional_headers": headers,     # v15 name
-        "max_size": None,                  # allowed (no limit)
-        "ping_interval": 30,
-        "ping_timeout": 30,
-        "max_queue": None,
-        "write_limit": 2**22,
-        "open_timeout": 30,
-        "close_timeout": 0.5,
-    }
+    # Minimal WS options (match Kyutai guidance): headers only
+    ws_options = {"additional_headers": headers}
 
     # We'll measure both:
     # 1) end-to-end TTFB (includes WS connect) -> ttfb_e2e_s
