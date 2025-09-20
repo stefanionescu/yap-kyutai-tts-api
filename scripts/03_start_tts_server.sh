@@ -13,8 +13,8 @@ SCRIPT_NAME="03-tts"
 
 log_info "$SCRIPT_NAME" "Preparing environment"
 
-export PATH="${CUDA_PREFIX:-/usr/local/cuda}/bin:$HOME/.cargo/bin:$HOME/.local/bin:$PATH"
-export CUDARC_NVRTC_PATH="${CUDARC_NVRTC_PATH:-${CUDA_PREFIX:-/usr/local/cuda}/lib64/libnvrtc.so}"
+export PATH="${CUDA_PREFIX:-/usr/local/cuda-12.8}/bin:$HOME/.cargo/bin:$HOME/.local/bin:$PATH"
+export CUDARC_NVRTC_PATH="${CUDARC_NVRTC_PATH:-${CUDA_PREFIX:-/usr/local/cuda-12.8}/lib64/libnvrtc.so}"
 export HF_HOME HF_HUB_ENABLE_HF_TRANSFER HF_HUB_DISABLE_XET
 
 # Setup server environment variables
@@ -53,8 +53,12 @@ fi
 log_info "$SCRIPT_NAME" "Auth configuration:"
 grep -n 'authorized_ids' "$CFG" >&2 || log_info "$SCRIPT_NAME" "No auth configured (server is open)"
 
-# Setup Python library paths for Rust runtime
+# Setup Python library paths for Rust runtime and add CUDA libs
 setup_python_lib_paths "$SCRIPT_NAME" "$PYTHON_BIN"
+export LD_LIBRARY_PATH="$("$PYTHON_BIN" - <<'PY'
+import sysconfig; print(sysconfig.get_config_var("LIBDIR") or "")
+PY
+):${CUDA_PREFIX:-/usr/local/cuda-12.8}/lib64:${LD_LIBRARY_PATH:-}"
 
 # Prefer cargo-installed moshi-server@0.6.3; fallback to local build
 MOSHI_BIN="$HOME/.cargo/bin/moshi-server"
