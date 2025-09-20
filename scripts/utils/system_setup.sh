@@ -112,6 +112,11 @@ install_python_deps() {
   log_info "$script_name" "Ensuring huggingface_hub and sentencepiece are available in the venv"
   uv pip install --python "$(pwd)/.venv/bin/python" huggingface_hub sentencepiece
   
+  # Force CUDA-enabled PyTorch (critical for GPU performance)
+  log_info "$script_name" "Installing CUDA-enabled PyTorch for CUDA 12.8"
+  uv pip install --python "$(pwd)/.venv/bin/python" --index-url https://download.pytorch.org/whl/cu128 \
+    torch torchvision torchaudio --upgrade
+  
   log_success "$script_name" "Python dependencies installed"
 }
 
