@@ -15,7 +15,8 @@ install_system_packages() {
     apt-get update -y
     apt-get install -y --no-install-recommends \
       build-essential pkg-config libssl-dev libopus-dev cmake \
-      ca-certificates tmux libportaudio2 libsndfile1 jq
+      ca-certificates tmux libportaudio2 libsndfile1 jq \
+      git wget openssh-client dos2unix
     log_success "$script_name" "System packages installed"
   else
     log_warning "$script_name" "apt-get not available, skipping system package installation"
@@ -100,19 +101,12 @@ install_python_deps() {
   
   cd "$repo_root"
   
-  # Use local moshi repo's moshi-server Python manifests to install exact deps
-  if [ -f "${moshi_root}/rust/moshi-server/pyproject.toml" ] && [ -f "${moshi_root}/rust/moshi-server/uv.lock" ]; then
-    log_info "$script_name" "Installing Python deps from local moshi rust/moshi-server manifests"
-    cp -f "${moshi_root}/rust/moshi-server/pyproject.toml" ./pyproject.toml
-    cp -f "${moshi_root}/rust/moshi-server/uv.lock" ./uv.lock
-    uv sync --frozen --no-dev
-  else
-    log_warning "$script_name" "Local moshi manifests not found; falling back to fetching from GitHub"
-    local moshi_ref="aee53fc"
-    [ -f pyproject.toml ] || wget -q "https://raw.githubusercontent.com/kyutai-labs/moshi/${moshi_ref}/rust/moshi-server/pyproject.toml"
-    [ -f uv.lock ] || wget -q "https://raw.githubusercontent.com/kyutai-labs/moshi/${moshi_ref}/rust/moshi-server/uv.lock"
-    uv sync --frozen --no-dev
-  fi
+  # Force using Kyutai's public pinned manifests (parity with public Dockerfile)
+  local moshi_ref="bf359af7694add34c13e65d2f009f0cb474d87cc"
+  log_info "$script_name" "Fetching pinned pyproject/uv.lock from ${moshi_ref}"
+  wget -q -O pyproject.toml "https://raw.githubusercontent.com/kyutai-labs/moshi/${moshi_ref}/rust/moshi-server/pyproject.toml"
+  wget -q -O uv.lock "https://raw.githubusercontent.com/kyutai-labs/moshi/${moshi_ref}/rust/moshi-server/uv.lock"
+  uv sync --locked --no-dev
   
   # Ensure specific packages are available
   log_info "$script_name" "Ensuring huggingface_hub and sentencepiece are available in the venv"

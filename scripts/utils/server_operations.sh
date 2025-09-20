@@ -221,7 +221,7 @@ setup_server_environment() {
   unset CUBLAS_WORKSPACE_CONFIG
   
   # Threading environment
-  export RAYON_NUM_THREADS="${TTS_RAYON_THREADS:-4}"
+  export RAYON_NUM_THREADS="${TTS_RAYON_THREADS:-2}"
   export TOKIO_WORKER_THREADS="${TTS_TOKIO_THREADS:-$(nproc --all 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 16)}"
   
   # Logging
