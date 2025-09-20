@@ -220,9 +220,9 @@ setup_server_environment() {
   # Do not force deterministic cublas workspace (costs latency)
   unset CUBLAS_WORKSPACE_CONFIG
   
-  # Threading environment
-  export RAYON_NUM_THREADS="${TTS_RAYON_THREADS:-2}"
-  export TOKIO_WORKER_THREADS="${TTS_TOKIO_THREADS:-4}"
+  # Threading environment (unleash GPU utilization)
+  export RAYON_NUM_THREADS="${TTS_RAYON_THREADS:-8}"
+  export TOKIO_WORKER_THREADS="${TTS_TOKIO_THREADS:-$(nproc)}"
   
   # Logging
   export RUST_LOG="${RUST_LOG:-warn,hyper=warn,axum=warn}"
