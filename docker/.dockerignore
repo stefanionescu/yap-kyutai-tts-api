@@ -1,0 +1,21 @@
+# Ignore build artifacts and caches
+target/
+.data/
+.venv/
+*.log
+.git/
+.DS_Store
+
+# Keep essential files
+!scripts/
+!test/
+!requirements.txt
+!README.md
+!moshi/
+!research/
+
+# Ignore large research files we don't need in container
+research/unmute/
+research/moshi/client/
+research/moshi/data/
+research/moshi/notebooks/

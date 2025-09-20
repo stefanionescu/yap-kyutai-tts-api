@@ -19,6 +19,10 @@ export PATH="${CUDA_PREFIX:-/usr/local/cuda}/bin:$HOME/.cargo/bin:$HOME/.local/b
 echo "[main] Starting TTS provisioning and server startup"
 
 bash "${BASE_DIR}/01_install_tts_server.sh"
+
+echo "[main] Running GPU diagnostics"
+bash "${BASE_DIR}/07_gpu_diagnostics.sh"
+
 bash "${BASE_DIR}/02_fetch_tts_configs.sh"
 
 bash "${BASE_DIR}/03_start_tts_server.sh"

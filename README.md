@@ -308,3 +308,42 @@ done
 export TTS_BATCH_SIZE=16 TTS_NUM_WORKERS=16
 bash scripts/main.sh
 ```
+
+## **Docker Deployment**
+
+### **Build and Push Image**
+```bash
+# Build Docker image
+./docker/build.sh
+
+# Build and push to Docker Hub
+DOCKER_REPO=your-username/kyutai-tts PUSH=true ./docker/build.sh
+
+# Custom tag
+TAG=v1.0 DOCKER_REPO=your-username/kyutai-tts PUSH=true ./docker/build.sh
+```
+
+### **Run Locally**
+```bash
+# Run with GPU support
+docker run --gpus all -p 8089:8089 \
+  -e HUGGING_FACE_HUB_TOKEN=$HF_TOKEN \
+  your-username/kyutai-tts:latest
+
+# Test connection
+curl http://localhost:8089/api/build_info
+```
+
+### **Deploy on RunPod/Cloud**
+1. **Use image**: `your-username/kyutai-tts:latest` (or your custom repo)
+2. **Environment variables**:
+   - `HUGGING_FACE_HUB_TOKEN` (required)
+3. **Expose ports**: `8089`
+4. **GPU required**: NVIDIA with CUDA 12.x
+5. **Memory**: 8GB+ GPU, 16GB+ system RAM
+
+### **Performance Targets**
+- **Single stream TTFB**: ~220ms
+- **16 concurrent TTFB**: ~350ms  
+- **32 concurrent TTFB**: ~400ms
+- **Batch size**: 32 (optimized for L40S)
