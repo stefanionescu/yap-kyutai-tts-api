@@ -124,16 +124,17 @@ async def _tts_one(
 
         async def sender():
             try:
-                # Send each sentence as a single frame (no word-by-word streaming)
+                # Send word-by-word like Kyutai's official client
                 for sent in texts:
                     s = sent.strip()
                     if not s:
                         continue
-                    await ws.send(msgpack.packb({"type": "Text", "text": s}, use_bin_type=True))
-                    if t0_server_holder["t0"] is None:
-                        t0_server_holder["t0"] = time.perf_counter()
-                    await asyncio.sleep(0)
-                await ws.send(msgpack.packb({"type": "Eos"}, use_bin_type=True))
+                    for word in s.split():
+                        await ws.send(msgpack.packb({"type": "Text", "text": word}))
+                        if t0_server_holder["t0"] is None:
+                            t0_server_holder["t0"] = time.perf_counter()
+                        await asyncio.sleep(0)
+                await ws.send(msgpack.packb({"type": "Eos"}))
             except (asyncio.CancelledError, Exception):
                 # Connection closed or task cancelled, exit gracefully
                 pass
