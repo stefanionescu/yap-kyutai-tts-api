@@ -113,16 +113,23 @@ Adjust these to tune latency and prosody.
 
 ## Testing
 
+Activate the virtual environment (created by `custom/01_install_tts_server.sh`):
+
+```bash
+source .venv/bin/activate
+python -V
+```
+
 Warmup (single request):
 
 ```bash
-python test/warmup.py --server 127.0.0.1:8089
+python test/warmup.py
 ```
 
 Benchmark (concurrency):
 
 ```bash
-python test/bench.py --server 127.0.0.1:8089 --n 10 --concurrency 10
+python test/bench.py --n 16 --concurrency 16
 ```
 
 Both scripts save outputs and print TTFB (end-to-end and server), wall time, audio duration, and throughput.

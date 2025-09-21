@@ -244,6 +244,7 @@ async def bench_ws(
     voice_path: Optional[str],
     texts: List[str],
     api_key: str,
+    stream_mode: str,
 ) -> Tuple[List[Dict[str, float]], int, int]:
     sem = asyncio.Semaphore(max(1, concurrency))
     results: List[Dict[str, float]] = []
@@ -258,7 +259,7 @@ async def bench_ws(
             ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
             out_path = BENCH_DIR / f"bench_{ts}_{req_idx:05d}.wav"
             try:
-                r = await _tts_one(server, text, voice_path, out_path, api_key=api_key)
+                r = await _tts_one(server, text, voice_path, out_path, api_key=api_key, stream_mode=stream_mode)
                 results.append(r)
             except Exception as e:
                 errors_total += 1
@@ -293,20 +294,17 @@ def main() -> None:
     print(f"Texts: {len(texts)}")
 
     t0 = time.time()
-    # Wrap bench_ws to pass stream_mode to _tts_one by monkey-patching inside bench_ws
-    async def bench_with_mode():
-        async def _tts_one_wrapped(server, text, voice_path, out_path, api_key=None):
-            return await _tts_one(server, text, voice_path, out_path, api_key=api_key, stream_mode=args.stream_mode)
-        # Rebind local function for this call
-        nonlocal bench_ws
-        orig__tts_one = _tts_one
-        try:
-            globals()['_tts_one'] = _tts_one_wrapped  # type: ignore
-            return await bench_ws(args.server, args.n, args.concurrency, args.voice, texts, api_key)
-        finally:
-            globals()['_tts_one'] = orig__tts_one  # type: ignore
-
-    results, _rejected, errors = asyncio.run(bench_with_mode())
+    results, _rejected, errors = asyncio.run(
+        bench_ws(
+            args.server,
+            args.n,
+            args.concurrency,
+            args.voice,
+            texts,
+            api_key,
+            args.stream_mode,
+        )
+    )
     elapsed = time.time() - t0
 
     _summarize("TTS Streaming", results)
