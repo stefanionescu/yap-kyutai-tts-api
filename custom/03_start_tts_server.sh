@@ -95,7 +95,7 @@ nohup "$MOSHI_BIN" worker --config "$CFG" --addr "$ADDR" --port "$PORT" \
   > "$LOG_FILE" 2>&1 &
 
 # Wait for server to be ready
-if ! wait_for_server_ready "$SCRIPT_NAME" "$PORT" 600 "$LOG_FILE"; then
+if ! wait_for_server_ready "$SCRIPT_NAME" "$PORT" 300 "$LOG_FILE"; then
     exit 1
 fi
 
