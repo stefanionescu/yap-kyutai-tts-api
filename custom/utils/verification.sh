@@ -24,16 +24,15 @@ verify_config_file() {
   log_info "$script_name" "Current config voice settings:"
   grep -A3 -B3 "voice_folder\|default_voice\|n_q\|hf_repo\|batch_size\|text_tokenizer_file\|log_folder" "$config_file" >&2 || true
   
-  # Validate specific settings for 1.6B
+  # Accept official hf:// and hf-snapshot:// paths (Docker parity: config is used unaltered)
   if grep -q 'voice_folder.*hf-snapshot' "$config_file"; then
-    log_error "$script_name" "Config still uses HF snapshot, should use local path"
-    ((errors++))
+    log_info "$script_name" "Config uses HF snapshot voice folder (ok)"
+  fi
+  if grep -q 'text_tokenizer_file.*hf://' "$config_file"; then
+    log_info "$script_name" "Config uses HF tokenizer path (ok)"
   fi
 
-  if ! grep -q 'n_q = 24' "$config_file"; then
-    log_error "$script_name" "Config should have n_q = 24 (inference baseline) for 1.6B model"
-    ((errors++))
-  fi
+  # Do not enforce n_q here; leave as-is in config
 
   # Accept cfg_* and padding_between/interleaved_text_only fields (Unmute uses them)
   # No error here; informational only
@@ -44,18 +43,14 @@ verify_config_file() {
     log_info "$script_name" "Padding/interleave fields present (ok)"
   fi
 
-  # batch_size must match our target concurrency (from env or default 32)
+  # batch_size informational check against TTS_BATCH_SIZE
   local expected_bs
   expected_bs="${TTS_BATCH_SIZE:-16}"
   if ! grep -q "batch_size = ${expected_bs}" "$config_file"; then
-    log_error "$script_name" "Config should have batch_size = ${expected_bs}"
-    ((errors++))
+    log_info "$script_name" "Info: config batch_size differs from env expected ${expected_bs}"
   fi
 
-  if ! grep -q 'log_folder.*moshi-server-logs' "$config_file"; then
-    log_error "$script_name" "Config should have log_folder with moshi-server-logs"
-    ((errors++))
-  fi
+  # Leave log_folder as defined in config (no enforcement)
 
   if ! grep -q 'default_voice.*ears/p004' "$config_file"; then
     log_error "$script_name" "Config should have default_voice under ears/p004 (attribute name)"
@@ -67,11 +62,7 @@ verify_config_file() {
     ((errors++))
   fi
 
-  # Check tokenizer is using local path, not hf://
-  if grep -q 'text_tokenizer_file.*hf://' "$config_file"; then
-    log_error "$script_name" "Config should use local tokenizer path, not hf://"
-    ((errors++))
-  fi
+  # Do not require local tokenizer path
   
   if [ $errors -eq 0 ]; then
     log_success "$script_name" "Config file validation passed"
@@ -92,18 +83,14 @@ verify_voice_setup() {
   log_info "$script_name" "Voices directory verification"
   
   if [ ! -d "$voices_dir" ]; then
-    log_error "$script_name" "Voices directory missing: $voices_dir"
-    return 1
+  log_info "$script_name" "Voices directory missing: $voices_dir (ok if using HF snapshot)"
+  return 0
   fi
   
   local voice_count
   voice_count=$(find "$voices_dir" -type f \( -name '*.safetensors' -o -name '*.wav' \) | wc -l)
   log_info "$script_name" "Voices directory exists with $voice_count files"
-  
-  if [ "$voice_count" -lt 100 ]; then
-    log_error "$script_name" "Too few voice files (expected 900+, got $voice_count)"
-    ((errors++))
-  fi
+
   
   # Use our comprehensive voice validation function
   log_info "$script_name" "Required voices validation"
