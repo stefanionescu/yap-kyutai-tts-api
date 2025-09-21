@@ -1,6 +1,9 @@
 #!/bin/bash
 set -ex
 
+# Create python symlink for compatibility
+ln -sf /usr/bin/python3 /usr/bin/python
+
 # Set up Python library path
 export LD_LIBRARY_PATH=$(python3 -c 'import sysconfig; print(sysconfig.get_config_var("LIBDIR"))')
 
