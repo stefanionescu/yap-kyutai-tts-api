@@ -43,8 +43,6 @@ RUN wget https://raw.githubusercontent.com/kyutai-labs/moshi/bf359af7694add34c13
 # Install test dependencies in UV environment
 RUN uv pip install --system msgpack websockets python-dotenv numpy
 
-COPY . .
-
 # Copy config and startup script
 COPY docker/config.toml /app/config.toml
 COPY docker/start_moshi_server_public.sh ./start_moshi_server_public.sh

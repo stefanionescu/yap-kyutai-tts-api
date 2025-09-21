@@ -5,17 +5,27 @@ target/
 *.log
 .git/
 .DS_Store
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.pytest_cache/
+.coverage
+*.swp
+*.tmp
 
 # Keep essential files
-!scripts/
 !test/
-!requirements.txt
-!README.md
-!moshi/
-!research/
+!research/moshi/rust/
 
-# Ignore large research files we don't need in container
-research/unmute/
-research/moshi/client/
-research/moshi/data/
-research/moshi/notebooks/
+# Ignore ALL research except moshi-server Rust code
+research/
+moshi/
+configs/
+**/.git/
+.git/lfs/
+**/lfs/
+audio/
+*.wav
+*.mp3
+*.safetensors

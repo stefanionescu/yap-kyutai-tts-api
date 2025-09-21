@@ -4,6 +4,14 @@ set -ex
 
 export LD_LIBRARY_PATH=$(python3 -c 'import sysconfig; print(sysconfig.get_config_var("LIBDIR"))')
 
+# Reduce CPU thread contention and tokenizer overhead
+export CUDA_MODULE_LOADING=${CUDA_MODULE_LOADING:-EAGER}
+export RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-1}
+export OMP_NUM_THREADS=${OMP_NUM_THREADS:-1}
+export MKL_NUM_THREADS=${MKL_NUM_THREADS:-1}
+export TOKENIZERS_PARALLELISM=${TOKENIZERS_PARALLELISM:-false}
+export CUDA_DEVICE_MAX_CONNECTIONS=${CUDA_DEVICE_MAX_CONNECTIONS:-16}
+
 uvx --from 'huggingface_hub[cli]' huggingface-cli login --token $HUGGING_FACE_HUB_TOKEN
 
 CARGO_TARGET_DIR=/app/target cargo install --features cuda moshi-server@0.6.3
