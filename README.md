@@ -68,6 +68,9 @@ Run the one-shot setup and start:
 bash custom/main.sh
 ```
 
+Note:
+- When using the `custom/` scripts, run them in an environment equivalent to the Docker base image: `nvidia/cuda:12.8.1-devel-ubuntu22.04` (Ubuntu 22.04 with CUDA 12.8 devel toolchain). This ensures compatible compilers, libraries, and drivers.
+
 This will:
 - Install system deps, Rust toolchain, and a Python venv
 - Download the model and voices
