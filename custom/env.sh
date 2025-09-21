@@ -22,29 +22,9 @@ TTS_HF_REPO=${TTS_HF_REPO:-kyutai/tts-1.6b-en_fr}
 # Choose speaker directory (p004 by default)
 TTS_SPEAKER_DIR=${TTS_SPEAKER_DIR:-ears/p004}
 
-# Auto-detect the freeform_speech_01.wav file for p004 voice
-_SPK_ABS_DIR="${VOICES_DIR}/${TTS_SPEAKER_DIR}"
-_WAV_FILE=""
-if [ -d "$_SPK_ABS_DIR" ]; then
-  _WAV_FILE="$(
-    find "$_SPK_ABS_DIR" -maxdepth 1 -type f -name "freeform_speech_01.wav" -print -quit
-  )"
-  if [ -z "$_WAV_FILE" ]; then
-    _WAV_FILE="$(find "$_SPK_ABS_DIR" -maxdepth 1 -type f -name "*.wav" -print -quit)"
-  fi
-fi
-
-# Ensure TTS_VOICE is always defined to avoid set -u errors in callers
+# Do not auto-detect or require local WAVs; config uses hf-snapshot voices.
+# Leave TTS_VOICE untouched unless provided by the user.
 TTS_VOICE="${TTS_VOICE:-}"
-
-if [ -n "$_WAV_FILE" ]; then
-  # Store as a path relative to VOICES_DIR (what server config expects)
-  TTS_VOICE="${_WAV_FILE#${VOICES_DIR}/}"
-  export TTS_VOICE
-  echo "[env] Using voice WAV file: ${TTS_VOICE}" >&2
-else
-  echo "[env] WARNING: No WAV files found in ${_SPK_ABS_DIR} (*.wav)" >&2
-fi
 
 # Tuning knobs (override as needed)
 # Batching window/size for the TTS module (match your target concurrency)
