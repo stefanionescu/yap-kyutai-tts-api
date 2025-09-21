@@ -62,6 +62,7 @@ async def _tts_one(
     out_path: Path,
     *,
     api_key: Optional[str] = None,
+    stream_mode: str = "first_sentence_then_words",
 ) -> Dict[str, float]:
     url = _ws_url(server, voice_path)
 
@@ -124,16 +125,43 @@ async def _tts_one(
 
         async def sender():
             try:
-                # Send word-by-word like Kyutai's official client
+                # Build sentence list (split on punctuation) then stream per mode
+                all_sentences: List[str] = []
                 for sent in texts:
-                    s = sent.strip()
+                    s = (sent or "").strip()
                     if not s:
                         continue
-                    for word in s.split():
-                        await ws.send(msgpack.packb({"type": "Text", "text": word}))
+                    parts = [p.strip() for p in re.split(r"(?<=[.!?])\s+", s) if p and p.strip()]
+                    all_sentences.extend(parts or [s])
+
+                if stream_mode == "sentence":
+                    for s in all_sentences:
+                        await ws.send(msgpack.packb({"type": "Text", "text": s}))
                         if t0_server_holder["t0"] is None:
                             t0_server_holder["t0"] = time.perf_counter()
                         await asyncio.sleep(0)
+                elif stream_mode == "word":
+                    for s in all_sentences:
+                        for word in s.split():
+                            await ws.send(msgpack.packb({"type": "Text", "text": word}))
+                            if t0_server_holder["t0"] is None:
+                                t0_server_holder["t0"] = time.perf_counter()
+                            await asyncio.sleep(0)
+                else:  # first_sentence_then_words (default)
+                    if all_sentences:
+                        # First sentence whole
+                        await ws.send(msgpack.packb({"type": "Text", "text": all_sentences[0]}))
+                        if t0_server_holder["t0"] is None:
+                            t0_server_holder["t0"] = time.perf_counter()
+                        await asyncio.sleep(0)
+                        # Remaining sentences word-by-word
+                        for s in all_sentences[1:]:
+                            for word in s.split():
+                                await ws.send(msgpack.packb({"type": "Text", "text": word}))
+                                await asyncio.sleep(0)
+                    else:
+                        # Nothing to send
+                        pass
                 await ws.send(msgpack.packb({"type": "Eos"}))
             except (asyncio.CancelledError, Exception):
                 # Connection closed or task cancelled, exit gracefully
@@ -175,6 +203,7 @@ def main() -> None:
     ap.add_argument("--voice", default=os.environ.get("TTS_VOICE", "ears/p004/freeform_speech_01.wav.1e68beda@240.safetensors"), help="Voice path")
     ap.add_argument("--api-key", default=None, help="API key (defaults to KYUTAI_API_KEY env var or 'public_token')")
     ap.add_argument("--text", action="append", default=None, help="Text to synthesize (repeat for multiple)")
+    ap.add_argument("--stream-mode", choices=["sentence", "word", "first_sentence_then_words"], default="first_sentence_then_words", help="Streaming mode: sentence, word, or first_sentence_then_words (default)")
     args = ap.parse_args()
 
     # Determine API key
@@ -199,7 +228,7 @@ def main() -> None:
         print(f"  [{i+1}] {s}")
     print(f"Output: {out_path}")
 
-    result = asyncio.run(_tts_one(args.server, sentences, args.voice, out_path, api_key=api_key))
+    result = asyncio.run(_tts_one(args.server, sentences, args.voice, out_path, api_key=api_key, stream_mode=args.stream_mode))
     
     print(f"\n== Results ==")
     print(f"TTFB (e2e): {result['ttfb_e2e_s']:.3f}s")

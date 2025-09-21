@@ -13,10 +13,20 @@ install_system_packages() {
   export DEBIAN_FRONTEND=noninteractive
   if command_exists apt-get; then
     apt-get update -y
+    # Parity with docker/Dockerfile
     apt-get install -y --no-install-recommends \
-      build-essential pkg-config libssl-dev libopus-dev cmake \
-      ca-certificates tmux libportaudio2 libsndfile1 jq \
-      git wget openssh-client dos2unix
+      curl \
+      build-essential \
+      ca-certificates \
+      libssl-dev \
+      git \
+      pkg-config \
+      cmake \
+      wget \
+      openssh-client \
+      dos2unix \
+      python3 \
+      python3-pip
     log_success "$script_name" "System packages installed"
   else
     log_warning "$script_name" "apt-get not available, skipping system package installation"
@@ -73,6 +83,11 @@ setup_python_environment() {
     export PATH="$HOME/.local/bin:$PATH"
   fi
   
+  # Prefer a known-good uv version (parity with Docker image 0.7.2) if available
+  if command_exists uv; then
+    log_info "$script_name" "uv version: $(uv --version 2>/dev/null || echo unknown)"
+  fi
+  
   # Avoid uv hardlink warnings across filesystems
   export UV_LINK_MODE=copy
   
@@ -101,21 +116,14 @@ install_python_deps() {
   
   cd "$repo_root"
   
-  # Force using Kyutai's public pinned manifests (parity with public Dockerfile)
-  local moshi_ref="bf359af7694add34c13e65d2f009f0cb474d87cc"
-  log_info "$script_name" "Fetching pinned pyproject/uv.lock from ${moshi_ref}"
-  wget -q -O pyproject.toml "https://raw.githubusercontent.com/kyutai-labs/moshi/${moshi_ref}/rust/moshi-server/pyproject.toml"
-  wget -q -O uv.lock "https://raw.githubusercontent.com/kyutai-labs/moshi/${moshi_ref}/rust/moshi-server/uv.lock"
+  # Use the repository-pinned pyproject and uv.lock (parity with Dockerfile)
+  cp "${moshi_root}/rust/moshi-server/pyproject.toml" pyproject.toml
+  cp "${moshi_root}/rust/moshi-server/uv.lock" uv.lock
   uv sync --locked --no-dev
   
-  # Ensure specific packages are available
-  log_info "$script_name" "Ensuring huggingface_hub and sentencepiece are available in the venv"
-  uv pip install --python "$(pwd)/.venv/bin/python" huggingface_hub sentencepiece
-  
-  # Force CUDA-enabled PyTorch (critical for GPU performance)
-  log_info "$script_name" "Installing CUDA-enabled PyTorch for CUDA 12.8"
-  uv pip install --python "$(pwd)/.venv/bin/python" --index-url https://download.pytorch.org/whl/cu128 \
-    torch torchvision torchaudio --upgrade
+  # Install test dependencies as Dockerfile does (into our venv instead of --system)
+  log_info "$script_name" "Installing test dependencies (msgpack websockets python-dotenv numpy)"
+  uv pip install --python "$(pwd)/.venv/bin/python" msgpack websockets python-dotenv numpy
   
   log_success "$script_name" "Python dependencies installed"
 }

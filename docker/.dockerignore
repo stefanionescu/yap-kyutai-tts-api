@@ -15,13 +15,13 @@ __pycache__/
 *.tmp
 
 # Keep essential files
-!test/
+!test/**
 !research/moshi/rust/
+!configs/config.toml
 
 # Ignore ALL research except moshi-server Rust code
 research/
 moshi/
-configs/
 **/.git/
 .git/lfs/
 **/lfs/

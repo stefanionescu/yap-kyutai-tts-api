@@ -11,14 +11,21 @@ source "$SCRIPT_DIR/utils/system_setup.sh"
 
 SCRIPT_NAME="03-tts"
 
-log_info "$SCRIPT_NAME" "Preparing environment"
+log_info "$SCRIPT_NAME" "Preparing environment (Docker parity)"
 
-export PATH="${CUDA_PREFIX:-/usr/local/cuda-12.8}/bin:$HOME/.cargo/bin:$HOME/.local/bin:$PATH"
-export CUDARC_NVRTC_PATH="${CUDARC_NVRTC_PATH:-${CUDA_PREFIX:-/usr/local/cuda-12.8}/lib64/libnvrtc.so}"
+export PATH="${CUDA_PREFIX:-/usr/local/cuda}/bin:$HOME/.cargo/bin:$HOME/.local/bin:$PATH"
+export CUDARC_NVRTC_PATH="${CUDARC_NVRTC_PATH:-${CUDA_PREFIX:-/usr/local/cuda}/lib64/libnvrtc.so}"
 export HF_HOME HF_HUB_ENABLE_HF_TRANSFER HF_HUB_DISABLE_XET
 
-# Setup server environment variables
-setup_server_environment "$SCRIPT_NAME"
+# Replicate docker/start_moshi_server_public.sh environment knobs
+export CUDA_MODULE_LOADING=${CUDA_MODULE_LOADING:-EAGER}
+export RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-1}
+export OMP_NUM_THREADS=${OMP_NUM_THREADS:-1}
+export MKL_NUM_THREADS=${MKL_NUM_THREADS:-1}
+export TOKENIZERS_PARALLELISM=${TOKENIZERS_PARALLELISM:-false}
+export CUDA_DEVICE_MAX_CONNECTIONS=${CUDA_DEVICE_MAX_CONNECTIONS:-16}
+
+# No extra env beyond the public start script to keep parity
 
 CFG="${TTS_CONFIG}"
 LOG_DIR="${TTS_LOG_DIR}"
@@ -37,53 +44,36 @@ log_info "$SCRIPT_NAME" "Voice & model config lines:"
 grep -nE 'hf_repo|n_q|batch_size|voice_folder|default_voice|text_tokenizer_file|cfg_is_no_text|padding_between|cfg_coef|log_folder|hf-snapshot' "${CFG}" >&2 || log_info "$SCRIPT_NAME" "No relevant config found"
 log_info "$SCRIPT_NAME" "Reusing config at ${CFG} (no re-generation here)"
 
-# Validate all required voices are available before starting server
-log_info "$SCRIPT_NAME" "Validating all required voices are available..."
-if ! validate_all_voices "$SCRIPT_NAME" "$VOICES_DIR"; then
-    log_error "$SCRIPT_NAME" "Required voices missing. Please run 02_fetch_tts_configs.sh first."
-    exit 1
-fi
-
-# Verify specific voice embedding exists
-if ! verify_voice_embedding "$SCRIPT_NAME" "$VOICES_DIR" "$TTS_VOICE"; then
-    exit 1
-fi
+# Docker flow does not validate local voices; uses hf-snapshot://
 
 # Show auth configuration so you know if the server requires API keys
 log_info "$SCRIPT_NAME" "Auth configuration:"
 grep -n 'authorized_ids' "$CFG" >&2 || log_info "$SCRIPT_NAME" "No auth configured (server is open)"
 
-# Setup Python library paths for Rust runtime and add CUDA libs
+# Setup Python library paths for Rust runtime and add CUDA libs (parity)
 setup_python_lib_paths "$SCRIPT_NAME" "$PYTHON_BIN"
 export LD_LIBRARY_PATH="$("$PYTHON_BIN" - <<'PY'
 import sysconfig; print(sysconfig.get_config_var("LIBDIR") or "")
 PY
-):${CUDA_PREFIX:-/usr/local/cuda-12.8}/lib64:${LD_LIBRARY_PATH:-}"
+):${CUDA_PREFIX:-/usr/local/cuda}/lib64:${LD_LIBRARY_PATH:-}"
 
-# Prefer cargo-installed moshi-server@0.6.3; fallback to local build
+# HuggingFace login (Docker public script logs in unconditionally)
+uvx --from 'huggingface_hub[cli]' huggingface-cli login --token "${HUGGING_FACE_HUB_TOKEN:-}" || true
+
+# Install moshi-server at startup like Docker public script
+CARGO_TARGET_DIR="${ROOT_DIR}/target" cargo install --features cuda moshi-server@0.6.3 | cat || true
 MOSHI_BIN="$HOME/.cargo/bin/moshi-server"
-if [ ! -x "$MOSHI_BIN" ]; then
-    log_warning "$SCRIPT_NAME" "cargo-installed moshi-server not found, building locally"
-    MOSHI_BIN=$(build_moshi_server "$SCRIPT_NAME" "$ROOT_DIR" "$PYTHON_BIN")
-    if [ $? -ne 0 ] || [ ! -x "$MOSHI_BIN" ]; then
-        log_error "$SCRIPT_NAME" "Failed to obtain moshi-server binary"
-        exit 1
-    fi
-fi
 
-# Start server using tmux or nohup
+# Start server directly (like docker entrypoint)
 LOG_FILE="${LOG_DIR}/tts-server.log"
-if start_server_tmux "$SCRIPT_NAME" "$SESSION" "$MOSHI_BIN" "$CFG" "$ADDR" "$PORT" "$ROOT_DIR" "$LOG_FILE"; then
-    log_success "$SCRIPT_NAME" "Server started in tmux session"
-elif start_server_nohup "$SCRIPT_NAME" "$MOSHI_BIN" "$CFG" "$ADDR" "$PORT" "$ROOT_DIR" "$LOG_FILE"; then
-    log_success "$SCRIPT_NAME" "Server started with nohup"
-else
-    log_error "$SCRIPT_NAME" "Failed to start server"
-    exit 1
-fi
+ulimit -n 1048576 || true
+
+echo "[${SCRIPT_NAME}] Logging to: ${LOG_FILE}"
+nohup "$MOSHI_BIN" worker --config "$CFG" --addr "$ADDR" --port "$PORT" \
+  > "$LOG_FILE" 2>&1 &
 
 # Wait for server to be ready
-if ! wait_for_server_ready "$SCRIPT_NAME" "$PORT" 240 "$LOG_FILE"; then
+if ! wait_for_server_ready "$SCRIPT_NAME" "$PORT" 600 "$LOG_FILE"; then
     exit 1
 fi
 
