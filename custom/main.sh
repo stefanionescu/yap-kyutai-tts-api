@@ -25,7 +25,6 @@ bash "${BASE_DIR}/02_fetch_tts_configs.sh"
 UV_BIN="$(command -v uv || true)"
 if [ -n "$UV_BIN" ]; then
   echo "[main] Starting server via uv run --locked (Docker parity)"
-  chmod +x "${BASE_DIR}/"*.sh "${BASE_DIR}/utils/"*.sh 2>/dev/null || true
   (cd "$ROOT_DIR" && uv run --locked bash "${BASE_DIR}/03_start_tts_server.sh")
 else
   echo "[main] uv not found; starting server directly"
