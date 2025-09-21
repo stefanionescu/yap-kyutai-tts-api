@@ -2,7 +2,7 @@
 set -euo pipefail
 
 BASE_DIR="$(cd "$(dirname "$0")" && pwd)"
-ROOT_DIR="${BASE_DIR%/scripts}"
+ROOT_DIR="${BASE_DIR%/custom}"
 
 echo "[test-deps] Setting up test dependencies in existing venv"
 
@@ -12,7 +12,7 @@ VENV_PY="${VENV_DIR}/bin/python"
 
 if [ ! -x "$VENV_PY" ]; then
     echo "[test-deps] ERROR: venv not found at ${VENV_DIR}"
-    echo "[test-deps] Run scripts/01_install_tts_server.sh first"
+    echo "[test-deps] Run custom/01_install_tts_server.sh first"
     exit 1
 fi
 
