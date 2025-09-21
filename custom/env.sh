@@ -1,8 +1,8 @@
 # -------- YAP TTS RUNPOD ENV --------
 # Force ROOT_DIR to be this repo directory (not /workspace or external)
 __ENV_SH_DIR__="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-__REPO_ROOT__="${__ENV_SH_DIR__%/scripts}"
-ROOT_DIR="${__REPO_ROOT__}"
+# Move one directory up from custom/ to the repository root
+ROOT_DIR="$(cd "${__ENV_SH_DIR__}/.." && pwd)"
 
 echo "[env] ROOT_DIR forced to repo: ${ROOT_DIR}" >&2
 
