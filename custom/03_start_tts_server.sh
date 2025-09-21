@@ -50,9 +50,8 @@ log_info "$SCRIPT_NAME" "Reusing config at ${CFG} (no re-generation here)"
 log_info "$SCRIPT_NAME" "Auth configuration:"
 grep -n 'authorized_ids' "$CFG" >&2 || log_info "$SCRIPT_NAME" "No auth configured (server is open)"
 
-# Setup Python library paths for Rust runtime and add CUDA libs (parity)
-setup_python_lib_paths "$SCRIPT_NAME" "$PYTHON_BIN"
-export LD_LIBRARY_PATH="$("$PYTHON_BIN" - <<'PY'
+# Setup library paths exactly like Docker's public script: use python3 LIBDIR
+export LD_LIBRARY_PATH="$(python3 - <<'PY'
 import sysconfig; print(sysconfig.get_config_var("LIBDIR") or "")
 PY
 ):${CUDA_PREFIX:-/usr/local/cuda}/lib64:${LD_LIBRARY_PATH:-}"
