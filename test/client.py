@@ -110,6 +110,12 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Output WAV filename (default: tts_<timestamp>.wav under ROOT/audio)",
     )
+    ap.add_argument(
+        "--stream-mode",
+        choices=["sentence", "word", "first_sentence_then_words"],
+        default="first_sentence_then_words",
+        help="Streaming mode: sentence, word, or first_sentence_then_words (default)",
+    )
     return ap.parse_args()
 
 
@@ -132,6 +138,8 @@ async def tts_client(
     kyutai_api_key: Optional[str],
     runpod_api_key: Optional[str],
     out_path: Path,
+    *,
+    stream_mode: str = "first_sentence_then_words",
 ) -> dict:
     url = _ws_url(server, voice)
     headers = {}
@@ -236,12 +244,39 @@ async def tts_client(
 
         async def sender():
             try:
-                # Send full sentences, not word by word
-                for idx, text in enumerate(texts):
-                    await ws.send(msgpack.packb({"type": "Text", "text": text}, use_bin_type=True))
-                    if t0_server_holder["t0"] is None:
-                        t0_server_holder["t0"] = time.perf_counter()
-                    await asyncio.sleep(0)
+                # Build sentences array from input texts
+                import re as _re
+                sentences: List[str] = []
+                for s in texts:
+                    s = (s or "").strip()
+                    if not s:
+                        continue
+                    parts = [_p.strip() for _p in _re.split(r"(?<=[.!?])\s+", s) if _p and _p.strip()]
+                    sentences.extend(parts or [s])
+
+                if stream_mode == "sentence":
+                    for s in sentences:
+                        await ws.send(msgpack.packb({"type": "Text", "text": s}, use_bin_type=True))
+                        if t0_server_holder["t0"] is None:
+                            t0_server_holder["t0"] = time.perf_counter()
+                        await asyncio.sleep(0)
+                elif stream_mode == "word":
+                    for s in sentences:
+                        for word in s.split():
+                            await ws.send(msgpack.packb({"type": "Text", "text": word}, use_bin_type=True))
+                            if t0_server_holder["t0"] is None:
+                                t0_server_holder["t0"] = time.perf_counter()
+                            await asyncio.sleep(0)
+                else:  # first_sentence_then_words
+                    if sentences:
+                        await ws.send(msgpack.packb({"type": "Text", "text": sentences[0]}, use_bin_type=True))
+                        if t0_server_holder["t0"] is None:
+                            t0_server_holder["t0"] = time.perf_counter()
+                        await asyncio.sleep(0)
+                        for s in sentences[1:]:
+                            for word in s.split():
+                                await ws.send(msgpack.packb({"type": "Text", "text": word}, use_bin_type=True))
+                                await asyncio.sleep(0)
                 await ws.send(msgpack.packb({"type": "Eos"}, use_bin_type=True))
             except (asyncio.CancelledError, Exception):
                 # Connection closed or task cancelled, exit gracefully
@@ -315,6 +350,7 @@ def main() -> None:
             args.kyutai_api_key,
             args.runpod_api_key,
             out,
+            stream_mode=args.stream_mode,
         )
     )
     print("\n== Result ==")

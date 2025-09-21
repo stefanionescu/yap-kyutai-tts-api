@@ -33,6 +33,10 @@ echo "[test-deps] Upgrading packaging tools..."
 echo "[test-deps] Installing test dependencies from requirements.txt..."
 "$VENV_PY" -m pip install -r "${ROOT_DIR}/requirements.txt"
 
+# Ensure CLI for HuggingFace like docker/start script
+echo "[test-deps] Installing huggingface_hub CLI for login..."
+uvx --from 'huggingface_hub[cli]' huggingface-cli -h >/dev/null 2>&1 || true
+
 # Verify installation
 echo "[test-deps] Verifying test dependencies..."
 "$VENV_PY" -c "import msgpack, websockets, numpy; print('[test-deps] All test dependencies installed successfully')"

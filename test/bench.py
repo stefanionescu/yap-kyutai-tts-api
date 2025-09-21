@@ -70,6 +70,7 @@ async def _tts_one(
     out_path: Path,
     *,
     api_key: Optional[str] = None,
+    stream_mode: str = "first_sentence_then_words",
 ) -> Dict[str, float]:
     url = _ws_url(server, voice_path)
 
@@ -133,12 +134,37 @@ async def _tts_one(
 
         async def sender():
             try:
-                # Send word-by-word like Kyutai's official client
-                for word in text.split():
-                    await ws.send(msgpack.packb({"type": "Text", "text": word}))
-                    if t0_server_holder["t0"] is None:
-                        t0_server_holder["t0"] = time.perf_counter()
-                    await asyncio.sleep(0)
+                # Split text into sentences
+                def split_sentences(s: str) -> List[str]:
+                    import re as _re
+                    parts = [_p.strip() for _p in _re.split(r"(?<=[.!?])\s+", s) if _p and _p.strip()]
+                    return parts or [s]
+
+                sentences = split_sentences(text)
+
+                if stream_mode == "sentence":
+                    for s in sentences:
+                        await ws.send(msgpack.packb({"type": "Text", "text": s}))
+                        if t0_server_holder["t0"] is None:
+                            t0_server_holder["t0"] = time.perf_counter()
+                        await asyncio.sleep(0)
+                elif stream_mode == "word":
+                    for s in sentences:
+                        for word in s.split():
+                            await ws.send(msgpack.packb({"type": "Text", "text": word}))
+                            if t0_server_holder["t0"] is None:
+                                t0_server_holder["t0"] = time.perf_counter()
+                            await asyncio.sleep(0)
+                else:  # first_sentence_then_words
+                    if sentences:
+                        await ws.send(msgpack.packb({"type": "Text", "text": sentences[0]}))
+                        if t0_server_holder["t0"] is None:
+                            t0_server_holder["t0"] = time.perf_counter()
+                        await asyncio.sleep(0)
+                        for s in sentences[1:]:
+                            for word in s.split():
+                                await ws.send(msgpack.packb({"type": "Text", "text": word}))
+                                await asyncio.sleep(0)
                 await ws.send(msgpack.packb({"type": "Eos"}))
             except (asyncio.CancelledError, Exception):
                 # Connection closed or task cancelled, exit gracefully
@@ -254,6 +280,7 @@ def main() -> None:
     ap.add_argument("--voice", type=str, default=os.environ.get("TTS_VOICE", "ears/p004/freeform_speech_01.wav.1e68beda@240.safetensors"), help="Reference voice path on the server filesystem")
     ap.add_argument("--text", action="append", default=None, help="Inline text prompt (repeat for multiple)")
     ap.add_argument("--api-key", default=None, help="API key for authentication (defaults to KYUTAI_API_KEY env var or 'public_token')")
+    ap.add_argument("--stream-mode", choices=["sentence", "word", "first_sentence_then_words"], default="first_sentence_then_words", help="Streaming mode: sentence, word, or first_sentence_then_words (default)")
     args = ap.parse_args()
     
     # Determine API key: CLI arg -> env var -> default to public_token
@@ -266,7 +293,20 @@ def main() -> None:
     print(f"Texts: {len(texts)}")
 
     t0 = time.time()
-    results, _rejected, errors = asyncio.run(bench_ws(args.server, args.n, args.concurrency, args.voice, texts, api_key))
+    # Wrap bench_ws to pass stream_mode to _tts_one by monkey-patching inside bench_ws
+    async def bench_with_mode():
+        async def _tts_one_wrapped(server, text, voice_path, out_path, api_key=None):
+            return await _tts_one(server, text, voice_path, out_path, api_key=api_key, stream_mode=args.stream_mode)
+        # Rebind local function for this call
+        nonlocal bench_ws
+        orig__tts_one = _tts_one
+        try:
+            globals()['_tts_one'] = _tts_one_wrapped  # type: ignore
+            return await bench_ws(args.server, args.n, args.concurrency, args.voice, texts, api_key)
+        finally:
+            globals()['_tts_one'] = orig__tts_one  # type: ignore
+
+    results, _rejected, errors = asyncio.run(bench_with_mode())
     elapsed = time.time() - t0
 
     _summarize("TTS Streaming", results)

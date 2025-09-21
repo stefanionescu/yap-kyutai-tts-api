@@ -3,7 +3,8 @@ set -euo pipefail
 
 # Build and push Yap Kyutai TTS Docker image
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-REPO_ROOT="${SCRIPT_DIR%/docker}"
+# From docker/scripts → repo root
+REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
 # Default values
 DOCKER_REPO="${DOCKER_REPO:-yapai/kyutai-tts}"
