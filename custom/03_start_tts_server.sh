@@ -57,8 +57,30 @@ import sysconfig; print(sysconfig.get_config_var("LIBDIR") or "")
 PY
 ):${CUDA_PREFIX:-/usr/local/cuda}/lib64:${LD_LIBRARY_PATH:-}"
 
-# HuggingFace login (Docker public script logs in unconditionally)
-uvx --from 'huggingface_hub[cli]' huggingface-cli login --token "${HUGGING_FACE_HUB_TOKEN:-}" || true
+# HuggingFace login (robust, only if a valid-looking token is present)
+HF_TOKEN_VALUE="${HUGGING_FACE_HUB_TOKEN:-${HF_TOKEN:-}}"
+if [ -n "$HF_TOKEN_VALUE" ]; then
+  if echo "$HF_TOKEN_VALUE" | grep -Eq '^hf_[A-Za-z0-9]{20,}$'; then
+    log_info "$SCRIPT_NAME" "Logging into HuggingFace Hub via Python API"
+    uv run --locked python - <<'PY' || true
+import os
+from huggingface_hub import login
+tok = os.environ.get('HUGGING_FACE_HUB_TOKEN') or os.environ.get('HF_TOKEN')
+try:
+    if tok:
+        login(token=tok, add_to_git_credential=False)
+        print('HF login succeeded')
+    else:
+        print('No HF token provided; skipping login')
+except Exception as e:
+    print(f'HF login failed: {e}')
+PY
+  else
+    log_warning "$SCRIPT_NAME" "HUGGING_FACE_HUB_TOKEN does not look like an HF token (expected to start with hf_). Skipping login."
+  fi
+else
+  log_info "$SCRIPT_NAME" "No HF token set; skipping login"
+fi
 
 # Install moshi-server at startup like Docker public script
 CARGO_TARGET_DIR="${ROOT_DIR}/target" cargo install --features cuda moshi-server@0.6.3 | cat || true
