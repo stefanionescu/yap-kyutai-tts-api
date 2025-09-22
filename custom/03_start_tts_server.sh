@@ -59,7 +59,7 @@ PY
 # HuggingFace login (robust, only if a valid-looking token is present)
 HF_TOKEN_VALUE="${HUGGING_FACE_HUB_TOKEN:-${HF_TOKEN:-}}"
 if [ -n "$HF_TOKEN_VALUE" ]; then
-  if echo "$HF_TOKEN_VALUE" | grep -Eq '^hf_[A-Za-z0-9]{20,}$'; then
+  if echo "$HF_TOKEN_VALUE" | grep -Eq '^hf_[A-Za-z0-9]+'; then
     log_info "$SCRIPT_NAME" "Logging into HuggingFace Hub via Python API"
     uv run --locked python - <<'PY' || true
 import os
