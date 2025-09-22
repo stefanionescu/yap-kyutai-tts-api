@@ -18,7 +18,7 @@ VOICES_DIR=${VOICES_DIR:-${ROOT_DIR}/.data/voices}
 
 # ---- 1.6B model settings ----
 # Model repo for 1.6B
-TTS_HF_REPO=${TTS_HF_REPO:-kyutai/tts-1.6b-en_fr}
+TTS_HF_REPO=${TTS_HF_REPO:-yapwithai/kyutai-tts-1.6b-en_fr}
 # Choose speaker directory (p004 by default)
 TTS_SPEAKER_DIR=${TTS_SPEAKER_DIR:-ears/p004}
 
