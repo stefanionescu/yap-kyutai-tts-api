@@ -101,7 +101,7 @@ try:
     if patterns:
         kwargs['allow_patterns'] = patterns.split(',')
     
-    snapshot_download('kyutai/tts-voices', **kwargs)
+    snapshot_download('yapwithai/kyutai-tts-voices', **kwargs)
     print('Voices snapshot downloaded.')
 except Exception as e:
     print(f'ERROR downloading voices: {e}')

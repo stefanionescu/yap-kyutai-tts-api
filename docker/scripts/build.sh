@@ -7,9 +7,9 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
 # Default values
-DOCKER_REPO="${DOCKER_REPO:-yapai/kyutai-tts}"
+DOCKER_REPO="${DOCKER_REPO:-sionescu/kyutai-tts}"
 TAG="${TAG:-latest}"
-PUSH="${PUSH:-false}"
+PUSH="${PUSH:-true}"
 
 echo "Building Yap Kyutai TTS Docker image..."
 echo "Repository: $DOCKER_REPO"

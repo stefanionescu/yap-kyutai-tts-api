@@ -76,7 +76,7 @@ ensure_voice_availability() {
   if [ "$voice_count" -gt 0 ] && [ "$force_redownload" != "true" ]; then
     log_info "$script_name" "Voices already present in $voices_dir ($voice_count files, skip download)"
   else
-    log_info "$script_name" "Downloading ALL voices to $voices_dir (kyutai/tts-voices)"
+    log_info "$script_name" "Downloading ALL voices to $voices_dir (yapwithai/kyutai-tts-voices)"
     source "$(dirname "${BASH_SOURCE[0]}")/hf_operations.sh"
     download_hf_voices "$script_name" "$voices_dir" "$python_bin"
   fi
