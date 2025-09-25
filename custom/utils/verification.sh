@@ -52,8 +52,8 @@ verify_config_file() {
 
   # Leave log_folder as defined in config (no enforcement)
 
-  if ! grep -q 'default_voice.*ears/p004' "$config_file"; then
-    log_error "$script_name" "Config should have default_voice under ears/p004 (attribute name)"
+  if ! grep -q 'default_voice.*ears/p058' "$config_file"; then
+    log_error "$script_name" "Config should have default_voice under ears/p058 (attribute name)"
     ((errors++))
   fi
 
@@ -100,16 +100,16 @@ verify_voice_setup() {
     ((errors++))
   fi
   
-  # Check specifically for p004 files
-  log_info "$script_name" "P004 voice files"
-  local p004_files
-  p004_files=$(find "${voices_dir}/ears/p004" -maxdepth 1 -type f | wc -l)
-  if [ "$p004_files" -eq 0 ]; then
-    log_error "$script_name" "No p004 voice files found"
+  # Check specifically for p058 files
+  log_info "$script_name" "p058 voice files"
+  local p058_files
+  p058_files=$(find "${voices_dir}/ears/p058" -maxdepth 1 -type f | wc -l)
+  if [ "$p058_files" -eq 0 ]; then
+    log_error "$script_name" "No p058 voice files found"
     ((errors++))
   else
-    log_info "$script_name" "Found $p004_files p004 voice files:"
-    find "${voices_dir}/ears/p004" -maxdepth 1 -type f | head -5 >&2
+    log_info "$script_name" "Found $p058_files p058 voice files:"
+    find "${voices_dir}/ears/p058" -maxdepth 1 -type f | head -5 >&2
   fi
   
   if [ $errors -eq 0 ]; then
@@ -146,7 +146,7 @@ verify_server_connectivity() {
 verify_server_logs() {
   local script_name="$1"
   local log_file="$2"
-  local pattern="${3:-voice|loading|warming|p004|ears}"
+  local pattern="${3:-voice|loading|warming|p058|ears}"
   local description="${4:-voice-related}"
   
   log_info "$script_name" "Server logs ($description)"

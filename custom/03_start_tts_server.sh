@@ -106,5 +106,5 @@ show_server_logs "$SCRIPT_NAME" "$LOG_FILE" "CUDA|Cuda|device|loading" 10
 log_info "$SCRIPT_NAME" "GPU/device initialization shown above"
 
 # Show voice loading hints from the log  
-show_server_logs "$SCRIPT_NAME" "$LOG_FILE" "voice|embedding|p004|safetensors|default_voice" 10
+show_server_logs "$SCRIPT_NAME" "$LOG_FILE" "voice|embedding|p058|safetensors|default_voice" 10
 log_info "$SCRIPT_NAME" "Voice loading hints shown above"

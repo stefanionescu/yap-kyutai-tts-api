@@ -200,7 +200,7 @@ async def _tts_one(
 def main() -> None:
     ap = argparse.ArgumentParser(description="Single TTS warmup request")
     ap.add_argument("--server", default="127.0.0.1:8089", help="Server address")
-    ap.add_argument("--voice", default=os.environ.get("TTS_VOICE", "ears/p004/freeform_speech_01.wav.1e68beda@240.safetensors"), help="Voice path")
+    ap.add_argument("--voice", default=os.environ.get("TTS_VOICE", "ears/p058/freeform_speech_01.wav.1e68beda@240.safetensors"), help="Voice path")
     ap.add_argument("--api-key", default=None, help="API key (defaults to KYUTAI_API_KEY env var or 'public_token')")
     ap.add_argument("--text", action="append", default=None, help="Text to synthesize (repeat for multiple)")
     ap.add_argument("--stream-mode", choices=["sentence", "word", "first_sentence_then_words"], default="first_sentence_then_words", help="Streaming mode: sentence, word, or first_sentence_then_words (default)")

@@ -39,9 +39,9 @@ def flags_out_from_mask_(flags_out: np.ndarray, mask: torch.Tensor, value: int):
 
 
 def split_at_specific_separator(text: str, separator: str, index_of_separator: int) -> tuple[str, str]:
-    """ kyutai/tts-voices/unmute-prod-website/*.safetensors
+    """ yapwithai/kyutai-tts-voices/unmute-prod-website/*.safetensors
     becomes
-    ('kyutai/tts-voices', 'unmute-prod-website/*.safetensors)
+    ('yapwithai/kyutai-tts-voices', 'unmute-prod-website/*.safetensors)
     with index_of_separator=1.
     """
     if text.count(separator) <= index_of_separator:
@@ -62,9 +62,9 @@ class Config(BaseModel):
     n_q: int = 24
     # This can have multiple formats:
     # - A path to a folder with voices, e.g. `models/tts`
-    # - A huggingface snapshot, e.g. `hf-snapshot://kyutai/tts-voices`
+    # - A huggingface snapshot, e.g. `hf-snapshot://yapwithai/kyutai-tts-voices`
     # - A huggingface snapshot with a pattern,
-    #     e.g. `hf-snapshot://kyutai/tts-voices/unmute-prod-website/*.safetensors`
+    #     e.g. `hf-snapshot://yapwithai/kyutai-tts-voices/unmute-prod-website/*.safetensors`
     voice_folder: str = str(Path.home() / 'models/tts-voices')
     default_voice: str = "barack_demo.wav"
 
@@ -555,7 +555,7 @@ if __name__ == '__main__':
     config_override = {
         'hf_repo': args.hf_repo,
         'cfg_coef': args.cfg_coef,
-        'voice_folder': 'hf-snapshot://kyutai/tts-voices/unmute-prod-website/*.safetensors',
+        'voice_folder': 'hf-snapshot://yapwithai/kyutai-tts-voices/unmute-prod-website/*.safetensors',
         'default_voice': 'unmute-prod-website/default_voice.wav',
     }
     service = init(batch_size=bs, config_override=config_override)

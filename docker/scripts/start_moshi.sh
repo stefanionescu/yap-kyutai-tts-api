@@ -12,6 +12,11 @@ export MKL_NUM_THREADS=${MKL_NUM_THREADS:-1}
 export TOKENIZERS_PARALLELISM=${TOKENIZERS_PARALLELISM:-false}
 export CUDA_DEVICE_MAX_CONNECTIONS=${CUDA_DEVICE_MAX_CONNECTIONS:-16}
 
+# Performance optimizations
+export NVIDIA_TF32_OVERRIDE=${NVIDIA_TF32_OVERRIDE:-1}
+export TORCH_ALLOW_TF32_CUBLAS=${TORCH_ALLOW_TF32_CUBLAS:-1}
+export TORCH_ALLOW_TF32_CUDNN=${TORCH_ALLOW_TF32_CUDNN:-1}
+
 uvx --from 'huggingface_hub[cli]' huggingface-cli login --token $HUGGING_FACE_HUB_TOKEN
 
 CARGO_TARGET_DIR=/app/target cargo install --features cuda moshi-server@0.6.3

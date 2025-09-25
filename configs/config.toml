@@ -12,8 +12,8 @@ text_bos_token = 1
 
 [modules.tts_py.py]
 log_folder = "/tmp/unmute_logs"
-voice_folder = "hf-snapshot://yapwithai/kyutay-tt-voices/**/*.safetensors"
-default_voice = "ears/p004/freeform_speech_01.wav"
+voice_folder = "hf-snapshot://yapwithai/kyutai-tts-voices/**/*.safetensors"
+default_voice = "ears/p058/freeform_speech_01.wav"
 hf_repo = "yapwithai/kyutai-tts-1.6b-en_fr"
 cfg_coef = 2.0
 cfg_is_no_text = true

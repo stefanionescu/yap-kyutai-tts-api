@@ -7,7 +7,7 @@ source "${BASE_DIR}/env.sh"
 SERVER="${YAP_PUBLIC_WS_URL:-ws://${YAP_CLIENT_HOST:-127.0.0.1}:${TTS_PORT}}"
 # Send the relative voice key understood by the server (not an absolute path)
 # Use the precomputed embedding for 1.6B model instead of .wav
-VOICE_KEY="${TTS_VOICE:-ears/p004/freeform_speech_01.wav.1e68beda@240.safetensors}"
+VOICE_KEY="${TTS_VOICE:-ears/p058/freeform_speech_01.wav.1e68beda@240.safetensors}"
 OUT="${ROOT_DIR}/.data/warmup/warmup.wav"
 mkdir -p "$(dirname "$OUT")"
 

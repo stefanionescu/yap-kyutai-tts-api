@@ -86,7 +86,7 @@ def parse_args() -> argparse.Namespace:
     )
     ap.add_argument(
         "--voice",
-        default=os.getenv("TTS_VOICE", "ears/p004/freeform_speech_01.wav.1e68beda@240.safetensors"),
+        default=os.getenv("TTS_VOICE", "ears/p058/freeform_speech_01.wav.1e68beda@240.safetensors"),
         help="Voice path available on server (relative to voices dir)",
     )
     ap.add_argument(
@@ -150,16 +150,8 @@ async def tts_client(
         headers["runpod-api-key"] = runpod_api_key
         headers["Authorization"] = f"Bearer {runpod_api_key}"
 
-    ws_options = {
-        "additional_headers": headers,  # websockets v15 naming
-        "max_size": None,
-        "ping_interval": 30,
-        "ping_timeout": 30,
-        "max_queue": None,
-        "write_limit": 2**22,
-        "open_timeout": 30,
-        "close_timeout": 0.5,
-    }
+    # Minimal WS options (match warmup.py): headers only
+    ws_options = {"additional_headers": headers}
 
     # 1.6B uses speaker **embeddings**; no audio prefix trimming needed.
     prefix_samples_to_drop = 0
