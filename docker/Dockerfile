@@ -37,21 +37,28 @@ HEALTHCHECK --start-period=10m \
 EXPOSE 8089
 ENV RUST_BACKTRACE=1
 
-RUN wget https://raw.githubusercontent.com/kyutai-labs/moshi/bf359af7694add34c13e65d2f009f0cb474d87cc/rust/moshi-server/pyproject.toml
-RUN wget https://raw.githubusercontent.com/kyutai-labs/moshi/bf359af7694add34c13e65d2f009f0cb474d87cc/rust/moshi-server/uv.lock
+RUN wget https://raw.githubusercontent.com/Yap-With-AI/moshi/bf359af7694add34c13e65d2f009f0cb474d87cc/rust/moshi-server/pyproject.toml
+RUN wget https://raw.githubusercontent.com/Yap-With-AI/moshi/bf359af7694add34c13e65d2f009f0cb474d87cc/rust/moshi-server/uv.lock
 
-# Install test dependencies in UV environment
-RUN uv pip install --system msgpack websockets python-dotenv numpy
+# Install Python test/client dependencies from requirements.txt into a project venv
+COPY requirements.txt /app/requirements.txt
+# Create a project-local virtualenv so interactive shells use it too
+RUN uv venv && \
+    uv pip install --python /app/.venv/bin/python -r /app/requirements.txt
 
 # Copy config and startup script (from repo configs)
 COPY configs/config.toml /app/config.toml
 COPY test/ /app/test/
-COPY docker/scripts/start_moshi_server_public.sh ./start_moshi_server_public.sh
+COPY docker/scripts/start_moshi.sh ./start_moshi.sh
 
 # Ensure the startup script is runnable inside the container.
-RUN dos2unix ./start_moshi_server_public.sh && chmod +x ./start_moshi_server_public.sh
+RUN dos2unix ./start_moshi.sh && chmod +x ./start_moshi.sh
 
-# Create python symlink for tests
+# Create python symlink for tests (system fallback)
 RUN ln -sf /usr/bin/python3 /usr/bin/python
 
-ENTRYPOINT ["uv", "run", "--locked", "./start_moshi_server_public.sh"]
+# Default to the project venv for interactive sessions
+ENV VIRTUAL_ENV=/app/.venv
+ENV PATH=/app/.venv/bin:$PATH
+
+ENTRYPOINT ["uv", "run", "--locked", "./start_moshi.sh"]

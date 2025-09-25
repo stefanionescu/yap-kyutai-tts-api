@@ -35,7 +35,7 @@ setup_python_lib_paths "$SCRIPT_NAME" "$ROOT_DIR/.venv/bin/python"
 export CXXFLAGS="-include cstdint"
 
 # Install moshi-server (pinned) with CUDA support via cargo (CARGO_TARGET_DIR parity)
-log_info "$SCRIPT_NAME" "Installing moshi-server@0.6.3 with CUDA via cargo (parity with docker/start_moshi_server_public.sh)"
+log_info "$SCRIPT_NAME" "Installing moshi-server@0.6.3 with CUDA via cargo (parity with docker/start_moshi.sh)"
 if ! CARGO_TARGET_DIR="${ROOT_DIR}/target" "$HOME/.cargo/bin/cargo" install --features cuda moshi-server@0.6.3 | cat; then
   log_error "$SCRIPT_NAME" "Failed to install moshi-server@0.6.3"
   exit 1

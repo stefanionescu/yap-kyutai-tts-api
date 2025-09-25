@@ -19,7 +19,7 @@ Do not mix both at the same time on the same machine.
 ## Requirements
 
 - NVIDIA GPU with CUDA 12.x (L40S recommended)
-- A HuggingFace token with access to `kyutai/tts-1.6b-en_fr`
+- A HuggingFace token with access to `yapwithai/kyutai-tts-1.6b-en_fr`
 - Outbound internet to download models and voices
 
 ## Option 1: Docker
@@ -50,7 +50,7 @@ curl -s http://127.0.0.1:8089/api/modules_info | jq . || \
 
 Notes:
 - The Docker build context is minimized via `docker/.dockerignore`.
-- The image copies `configs/config.toml` to `/app/config.toml`, and `docker/scripts/start_moshi_server_public.sh` into `/app/`.
+- The image copies `configs/config.toml` to `/app/config.toml`, and `docker/scripts/start_moshi.sh` into `/app/`.
 - The image also includes `test/` under `/app/test/` for convenience.
 - The server binary is installed at container start using `cargo install --features cuda moshi-server@0.6.3`.
 
@@ -113,22 +113,21 @@ Adjust these to tune latency and prosody.
 
 ## Testing
 
-Activate the virtual environment (created by `custom/01_install_tts_server.sh`):
+**Docker**: Python deps are pre-installed in the container's venv. No activation needed:
+
+```bash
+# Inside Docker container
+python -V
+python test/warmup.py
+python test/bench.py --n 16 --concurrency 16
+```
+
+**Local custom/ scripts**: Activate the venv first:
 
 ```bash
 source .venv/bin/activate
 python -V
-```
-
-Warmup (single request):
-
-```bash
 python test/warmup.py
-```
-
-Benchmark (concurrency):
-
-```bash
 python test/bench.py --n 16 --concurrency 16
 ```
 
@@ -146,7 +145,7 @@ Streaming mode notes:
 - `docker/`
   - `Dockerfile`: container build
   - `.dockerignore`: build context minimization
-  - `scripts/`: `start_moshi_server_public.sh` (entrypoint), `build.sh` (image build)
+  - `scripts/`: `start_moshi.sh` (entrypoint), `build.sh` (image build)
 - `configs/`
   - `config.toml`: shared configuration used by Docker and the local scripts
 - `custom/` (only for local, non-Docker runs)
