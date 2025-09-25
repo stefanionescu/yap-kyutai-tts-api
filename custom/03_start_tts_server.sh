@@ -19,11 +19,19 @@ export HF_HOME HF_HUB_ENABLE_HF_TRANSFER HF_HUB_DISABLE_XET
 
 # Replicate docker/start_moshi.sh environment knobs
 export CUDA_MODULE_LOADING=${CUDA_MODULE_LOADING:-EAGER}
-export RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-1}
+export RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-4}
 export OMP_NUM_THREADS=${OMP_NUM_THREADS:-1}
 export MKL_NUM_THREADS=${MKL_NUM_THREADS:-1}
 export TOKENIZERS_PARALLELISM=${TOKENIZERS_PARALLELISM:-false}
-export CUDA_DEVICE_MAX_CONNECTIONS=${CUDA_DEVICE_MAX_CONNECTIONS:-16}
+export CUDA_DEVICE_MAX_CONNECTIONS=${CUDA_DEVICE_MAX_CONNECTIONS:-64}
+
+# TF32 and allocator tuning (parity with docker/start_moshi.sh)
+export NVIDIA_TF32_OVERRIDE=${NVIDIA_TF32_OVERRIDE:-1}
+export TORCH_ALLOW_TF32_CUBLAS=${TORCH_ALLOW_TF32_CUBLAS:-1}
+export TORCH_ALLOW_TF32_CUDNN=${TORCH_ALLOW_TF32_CUDNN:-1}
+export PYTORCH_CUDA_ALLOC_CONF=${PYTORCH_CUDA_ALLOC_CONF:-max_split_size_mb:128,expandable_segments:True}
+export MALLOC_ARENA_MAX=${MALLOC_ARENA_MAX:-2}
+export RUST_LOG=${RUST_LOG:-info}
 
 # No extra env beyond the public start script to keep parity
 
@@ -85,13 +93,12 @@ fi
 CARGO_TARGET_DIR="${ROOT_DIR}/target" cargo install --features cuda moshi-server@0.6.3 | cat || true
 MOSHI_BIN="$HOME/.cargo/bin/moshi-server"
 
-# Start server directly (like docker entrypoint)
+# Start server via wrapper to ensure full env is propagated
 LOG_FILE="${LOG_DIR}/tts-server.log"
 ulimit -n 1048576 || true
 
 echo "[${SCRIPT_NAME}] Logging to: ${LOG_FILE}"
-nohup "$MOSHI_BIN" worker --config "$CFG" --addr "$ADDR" --port "$PORT" \
-  > "$LOG_FILE" 2>&1 &
+start_server_nohup "$SCRIPT_NAME" "$MOSHI_BIN" "$CFG" "$ADDR" "$PORT" "$ROOT_DIR" "$LOG_FILE"
 
 # Wait for server to be ready
 if ! wait_for_server_ready "$SCRIPT_NAME" "$PORT" 300 "$LOG_FILE"; then

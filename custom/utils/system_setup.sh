@@ -15,7 +15,7 @@ install_system_packages() {
     apt-get update -y
     # Parity with docker/Dockerfile
     apt-get install -y --no-install-recommends \
-      curl \
+      curl jq \
       build-essential \
       ca-certificates \
       libssl-dev \
