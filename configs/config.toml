@@ -7,7 +7,7 @@ authorized_ids = ["public_token"]
 type = "Py"
 path = "/api/tts_streaming"
 text_tokenizer_file = "hf://yapwithai/kyutai-tts-1.6b-en_fr/tokenizer_spm_8k_en_fr_audio.model"
-batch_size = 16
+batch_size = 24
 text_bos_token = 1
 
 [modules.tts_py.py]
@@ -17,7 +17,10 @@ default_voice = "ears/p058/freeform_speech_01.wav"
 hf_repo = "yapwithai/kyutai-tts-1.6b-en_fr"
 cfg_coef = 2.0
 cfg_is_no_text = true
-padding_between = 1
+initial_padding = 0
+final_padding = 0
+padding_between = 0
+interleaved_text_only = 0
 max_consecutive_pads = 6
 padding_bonus = 1.0
 n_q = 16

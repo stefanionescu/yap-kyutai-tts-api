@@ -7,6 +7,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 # Install dependencies, including dos2unix to handle Windows line endings
 RUN apt-get update && apt-get install -y \
     curl \
+    jq \
     build-essential \
     ca-certificates \
     libssl-dev \
@@ -36,6 +37,7 @@ HEALTHCHECK --start-period=10m \
 
 EXPOSE 8089
 ENV RUST_BACKTRACE=1
+ENV RUST_LOG=${RUST_LOG:-info}
 
 RUN wget https://raw.githubusercontent.com/Yap-With-AI/moshi/bf359af7694add34c13e65d2f009f0cb474d87cc/rust/moshi-server/pyproject.toml
 RUN wget https://raw.githubusercontent.com/Yap-With-AI/moshi/bf359af7694add34c13e65d2f009f0cb474d87cc/rust/moshi-server/uv.lock

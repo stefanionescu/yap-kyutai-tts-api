@@ -45,7 +45,7 @@ verify_config_file() {
 
   # batch_size informational check against TTS_BATCH_SIZE
   local expected_bs
-  expected_bs="${TTS_BATCH_SIZE:-16}"
+  expected_bs="${TTS_BATCH_SIZE:-24}"
   if ! grep -q "batch_size = ${expected_bs}" "$config_file"; then
     log_info "$script_name" "Info: config batch_size differs from env expected ${expected_bs}"
   fi
