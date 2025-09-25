@@ -213,7 +213,7 @@ def main() -> None:
     if args.text:
         raw = " ".join([t for t in args.text if t and t.strip()])
     else:
-        raw = "This is a warmup request to test the TTS system."
+        raw = "Wow Danny, you're so hot and handsome! Can't wait for the app to be done so we can talk. See you there sweetie!"
     sentences = [raw.strip()]
 
     # Output file
