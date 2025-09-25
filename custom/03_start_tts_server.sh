@@ -17,7 +17,7 @@ export PATH="${CUDA_PREFIX:-/usr/local/cuda}/bin:$HOME/.cargo/bin:$HOME/.local/b
 export CUDARC_NVRTC_PATH="${CUDARC_NVRTC_PATH:-${CUDA_PREFIX:-/usr/local/cuda}/lib64/libnvrtc.so}"
 export HF_HOME HF_HUB_ENABLE_HF_TRANSFER HF_HUB_DISABLE_XET
 
-# Replicate docker/start_moshi_server_public.sh environment knobs
+# Replicate docker/start_moshi.sh environment knobs
 export CUDA_MODULE_LOADING=${CUDA_MODULE_LOADING:-EAGER}
 export RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-1}
 export OMP_NUM_THREADS=${OMP_NUM_THREADS:-1}
